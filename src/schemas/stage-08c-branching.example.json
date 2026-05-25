@@ -1,0 +1,83 @@
+{
+  "conversation_id": "conv_forked",
+  "messages": [
+    {
+      "id": "msg_base_user",
+      "conversation_id": "conv_source",
+      "turn_id": "turn_base",
+      "thread_id": "local-base",
+      "parent_message_id": null,
+      "logical_parent_message_id": null,
+      "role": "user",
+      "status": "completed",
+      "branch_status": "inherited",
+      "parts": [],
+      "created_at": "2026-05-14T00:00:00Z",
+      "updated_at": "2026-05-14T00:00:00Z"
+    },
+    {
+      "id": "msg_fork_user",
+      "conversation_id": "conv_forked",
+      "turn_id": "turn_fork",
+      "thread_id": "local-fork",
+      "parent_message_id": "msg_base_assistant",
+      "logical_parent_message_id": null,
+      "role": "user",
+      "status": "completed",
+      "branch_status": "active",
+      "parts": [],
+      "created_at": "2026-05-14T00:01:00Z",
+      "updated_at": "2026-05-14T00:01:00Z"
+    }
+  ],
+  "compaction_summaries": [],
+  "tool_output_replacements": [],
+  "branch_records": [
+    {
+      "id": "branch_1",
+      "operation": "fork",
+      "source_conversation_id": "conv_source",
+      "target_conversation_id": "conv_forked",
+      "source_message_id": "msg_base_assistant",
+      "source_turn_id": "turn_base",
+      "previous_active_head_id": null,
+      "new_active_head_id": "msg_base_assistant",
+      "reason": { "text": "explore alternate path" },
+      "status": "applied",
+      "created_at": "2026-05-14T00:01:00Z",
+      "updated_at": "2026-05-14T00:01:00Z"
+    }
+  ],
+  "active_head_transitions": [
+    {
+      "id": "head_1",
+      "conversation_id": "conv_forked",
+      "operation": "fork",
+      "previous_active_head_id": null,
+      "new_active_head_id": "msg_base_assistant",
+      "branch_record_id": "branch_1",
+      "reason": { "text": "explore alternate path" },
+      "created_at": "2026-05-14T00:01:00Z"
+    }
+  ],
+  "run_after_rollback": {
+    "conversation_id": "conv_source",
+    "previous_active_head_id": "msg_abandoned_assistant",
+    "new_active_head_id": "msg_base_assistant",
+    "new_user_parent_message_id": "msg_base_assistant"
+  },
+  "inactive_branch_omission": {
+    "message_id": "msg_abandoned_assistant",
+    "turn_id": "turn_abandoned",
+    "role": "assistant",
+    "reason": "inactive_branch"
+  },
+  "resume_conflict": {
+    "code": "inactive_branch_conflict",
+    "conversation_id": "conv_source",
+    "thread_id": "local-abandoned",
+    "turn_id": "turn_abandoned",
+    "active_head_message_id": "msg_base_assistant",
+    "turn_message_ids": ["msg_abandoned_user", "msg_abandoned_assistant"]
+  }
+}

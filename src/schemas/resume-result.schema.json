@@ -1,0 +1,18 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://kira-agent.local/schemas/resume-result.schema.json",
+  "title": "ResumeResult",
+  "type": "object",
+  "required": ["status", "thread_id", "interrupt_id", "decision", "events"],
+  "properties": {
+    "status": { "type": "string" },
+    "thread_id": { "type": "string" },
+    "interrupt_id": { "type": "string" },
+    "decision": { "type": "string", "enum": ["approve", "reject", "submit"] },
+    "events": {
+      "type": "array",
+      "items": { "$ref": "kira-event.schema.json" }
+    }
+  },
+  "additionalProperties": false
+}

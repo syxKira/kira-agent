@@ -1,0 +1,49 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://kira-agent.local/schemas/interrupt-payload.schema.json",
+  "title": "InterruptPayload",
+  "type": "object",
+  "required": ["interrupt_id", "kind", "title", "body", "data", "allowed_responses"],
+  "properties": {
+    "interrupt_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 96
+    },
+    "kind": {
+      "type": "string",
+      "enum": ["approval", "edit", "question", "python_approval"]
+    },
+    "title": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 160
+    },
+    "body": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 2000
+    },
+    "data": {
+      "type": "object",
+      "description": "Frontend-safe interrupt details. Raw provider secrets and raw runtime internals are forbidden."
+    },
+    "allowed_responses": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "label", "kind"],
+        "properties": {
+          "id": { "type": "string", "minLength": 1, "maxLength": 64 },
+          "label": { "type": "string", "minLength": 1, "maxLength": 80 },
+          "kind": { "type": "string", "enum": ["approve", "reject", "submit"] }
+        },
+        "additionalProperties": false
+      }
+    },
+    "metadata": {
+      "type": "object"
+    }
+  },
+  "additionalProperties": false
+}

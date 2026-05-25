@@ -1,0 +1,74 @@
+{
+  "permission": {
+    "action": "replacement.inspect",
+    "decision": "deny",
+    "reasons": ["replacement inspection requires retained debug output and explicit approval"],
+    "subject": {
+      "replacement_id": "repl_example",
+      "api_key": "[redacted]"
+    },
+    "redacted": true,
+    "audit": {
+      "correlation_id": "audit_example"
+    },
+    "created_at": "2026-05-15T00:00:00Z"
+  },
+  "audit": {
+    "id": "audit_example",
+    "action": "provider.select",
+    "status": "completed",
+    "decision": "allow",
+    "thread_id": "local-example",
+    "conversation_id": "conv-example",
+    "turn_id": "turn-example",
+    "provider": "openai",
+    "model": "model-a",
+    "metadata": {
+      "api_key": "[redacted]",
+      "hidden_thinking": "[redacted]"
+    },
+    "summary": "Provider selected with fixture fallback disabled",
+    "redacted": true,
+    "created_at": "2026-05-15T00:00:00Z"
+  },
+  "doctor": {
+    "status": "warning",
+    "generated_at": "2026-05-15T00:00:00Z",
+    "checks": [
+      {
+        "component": "provider",
+        "status": "warning",
+        "severity": "warning",
+        "message": "No valid real provider key configured; fixture fallback is available",
+        "remediation": "Configure ~/.kira-agent/config.yaml or continue with fixture mode",
+        "evidence": {
+          "has_api_key": false,
+          "api_key": "[redacted]"
+        }
+      }
+    ],
+    "versions": {
+      "backend": "0.1.0"
+    },
+    "deep_checks": {
+      "provider_smoke": "skipped"
+    }
+  },
+  "trace": {
+    "scope": "run",
+    "thread_id": "local-example",
+    "generated_at": "2026-05-15T00:00:00Z",
+    "redacted": true,
+    "truncated": false,
+    "limit": 100,
+    "events": [
+      {
+        "type": "thinking_delta",
+        "data": {
+          "text": "[redacted]"
+        }
+      }
+    ],
+    "audit": []
+  }
+}

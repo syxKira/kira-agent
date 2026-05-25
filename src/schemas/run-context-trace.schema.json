@@ -1,0 +1,45 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://kira-agent.local/schemas/run-context-trace.schema.json",
+  "title": "RunContextTrace",
+  "type": "object",
+  "required": ["thread_id", "budget", "included", "truncated", "omitted", "provider", "selected_skills"],
+  "properties": {
+    "thread_id": { "type": "string" },
+    "budget": {
+      "type": "object",
+      "required": ["max_items", "max_chars", "max_item_chars"],
+      "properties": {
+        "max_items": { "type": "integer" },
+        "max_chars": { "type": "integer" },
+        "max_item_chars": { "type": "integer" }
+      },
+      "additionalProperties": false
+    },
+    "included": { "type": "array", "items": { "$ref": "context-item.schema.json" } },
+    "truncated": { "type": "array", "items": { "type": "object" } },
+    "omitted": { "type": "array", "items": { "type": "object" } },
+    "provider": { "type": "object" },
+    "selected_skills": { "type": "array", "items": { "type": "object" } },
+    "project": { "type": ["object", "null"] },
+    "memory": { "type": ["object", "null"] },
+    "transcript": {
+      "type": ["object", "null"],
+      "properties": {
+        "conversation_id": { "type": "string" },
+        "turn_id": { "type": ["string", "null"] },
+        "active_head_message_id": { "type": ["string", "null"] },
+        "branch": { "type": "object" },
+        "included": { "type": "array", "items": { "type": "object" } },
+        "omitted": { "type": "array", "items": { "type": "object" } },
+        "summaries": { "type": "array", "items": { "$ref": "compaction-summary.schema.json" } },
+        "overflow_compaction": { "type": "object" }
+      },
+      "additionalProperties": true
+    },
+    "audit_ids": { "type": "array", "items": { "type": "string" } },
+    "permission_decisions": { "type": "array", "items": { "$ref": "permission-decision.schema.json" } },
+    "trace_export_refs": { "type": "array", "items": { "type": "object" } }
+  },
+  "additionalProperties": false
+}

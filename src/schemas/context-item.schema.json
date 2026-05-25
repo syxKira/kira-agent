@@ -1,0 +1,48 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://kira-agent.local/schemas/context-item.schema.json",
+  "title": "ContextItem",
+  "type": "object",
+  "required": ["id", "kind", "text", "payload", "metadata", "trust", "budget_cost", "citations"],
+  "properties": {
+    "id": { "type": "string", "minLength": 1 },
+    "kind": {
+      "type": "string",
+      "enum": ["system", "skill_summary", "skill_doc", "workflow_hint", "permission", "project_file", "project_search", "memory", "conversation_history", "conversation_summary", "compaction_summary", "tool_summary", "run", "omission", "debug"]
+    },
+    "text": { "type": "string" },
+    "payload": { "type": "object" },
+    "metadata": { "type": "object" },
+    "trust": {
+      "type": "string",
+      "enum": ["trusted_system", "trusted_skill", "untrusted_project", "user_supplied", "runtime_generated"]
+    },
+    "budget_cost": { "type": "integer", "minimum": 0 },
+    "citations": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/citation" }
+    }
+  },
+  "$defs": {
+    "citation": {
+      "type": "object",
+      "required": ["root_id", "path", "stale"],
+      "properties": {
+        "root_id": { "type": "string" },
+        "path": { "type": "string" },
+        "citation_type": { "type": "string" },
+        "citation_id": { "type": ["string", "null"] },
+        "memory_id": { "type": ["string", "null"] },
+        "start_line": { "type": ["integer", "null"] },
+        "end_line": { "type": ["integer", "null"] },
+        "chunk_id": { "type": ["string", "null"] },
+        "content_hash": { "type": ["string", "null"] },
+        "indexed_at": { "type": ["string", "null"] },
+        "stale": { "type": "boolean" },
+        "query": { "type": ["string", "null"] }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}

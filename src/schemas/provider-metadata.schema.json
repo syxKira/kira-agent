@@ -1,0 +1,57 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://kira-agent.local/schemas/provider-metadata.schema.json",
+  "title": "ProviderMetadata",
+  "type": "object",
+  "required": ["mode", "source"],
+  "properties": {
+    "mode": {
+      "type": "string",
+      "enum": ["fixture", "real"]
+    },
+    "source": {
+      "type": "string"
+    },
+    "fixture": {
+      "type": "string"
+    },
+    "provider": {
+      "type": "string"
+    },
+    "name": {
+      "type": "string"
+    },
+    "preset": {
+      "type": "string"
+    },
+    "model": {
+      "type": "string"
+    },
+    "base_url": {
+      "type": "string"
+    },
+    "api_key": {
+      "type": "string",
+      "description": "Always redacted when present."
+    },
+    "has_api_key": {
+      "type": "boolean"
+    },
+    "fallback_reason": {
+      "type": "string"
+    },
+    "attempted_provider": {
+      "type": "object"
+    },
+    "permission": {
+      "$ref": "permission-decision.schema.json"
+    },
+    "audit_id": {
+      "type": ["string", "null"]
+    },
+    "doctor_status": {
+      "type": ["string", "null"]
+    }
+  },
+  "additionalProperties": true
+}

@@ -1,0 +1,85 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://kira-agent.local/schemas/memory.schema.json",
+  "title": "KiraMemory",
+  "type": "object",
+  "$defs": {
+    "memoryRecord": {
+      "type": "object",
+      "required": ["id", "scope", "type", "status", "text", "tags", "confidence", "source", "created_at", "updated_at"],
+      "properties": {
+        "id": { "type": "string" },
+        "scope": { "type": "string", "enum": ["session", "projectLocal", "project", "user"] },
+        "type": { "type": "string", "enum": ["preference", "feedback", "decision", "project", "reference", "fact", "workflow"] },
+        "status": { "type": "string", "enum": ["active", "stale", "archived"] },
+        "text": { "type": "string" },
+        "tags": { "type": "array", "items": { "type": "string" } },
+        "confidence": { "type": "number", "minimum": 0, "maximum": 1 },
+        "source": { "type": "object" },
+        "created_at": { "type": "string" },
+        "updated_at": { "type": "string" },
+        "last_used_at": { "type": ["string", "null"] },
+        "expires_at": { "type": ["string", "null"] },
+        "project_root_id": { "type": ["string", "null"] },
+        "thread_id": { "type": ["string", "null"] },
+        "merged_ids": { "type": "array", "items": { "type": "string" } },
+        "audit_ids": { "type": "array", "items": { "type": "string" } },
+        "permission": { "$ref": "permission-decision.schema.json" }
+      },
+      "additionalProperties": false
+    },
+    "guardResult": {
+      "type": "object",
+      "required": ["allowed", "reasons"],
+      "properties": {
+        "allowed": { "type": "boolean" },
+        "reasons": { "type": "array", "items": { "type": "string" } },
+        "redacted_text": { "type": "string" }
+      },
+      "additionalProperties": false
+    },
+    "scoreReason": {
+      "type": "object",
+      "required": ["factor", "score"],
+      "properties": {
+        "factor": { "type": "string" },
+        "score": { "type": "number" },
+        "matched": { "type": "array", "items": { "type": "string" } }
+      },
+      "additionalProperties": false
+    },
+    "retrievalResult": {
+      "type": "object",
+      "required": ["memory", "score", "score_reasons", "duplicate_ids"],
+      "properties": {
+        "memory": { "$ref": "#/$defs/memoryRecord" },
+        "score": { "type": "number" },
+        "score_reasons": { "type": "array", "items": { "$ref": "#/$defs/scoreReason" } },
+        "duplicate_ids": { "type": "array", "items": { "type": "string" } },
+        "citation_id": { "type": ["string", "null"] }
+      },
+      "additionalProperties": false
+    },
+    "candidate": {
+      "type": "object",
+      "required": ["id", "status", "suggested_scope", "suggested_type", "text", "confidence", "reason", "risk", "guard"],
+      "properties": {
+        "id": { "type": "string" },
+        "status": { "type": "string", "enum": ["pending", "approved", "rejected", "deferred", "blocked"] },
+        "suggested_scope": { "type": "string" },
+        "suggested_type": { "type": "string" },
+        "text": { "type": "string" },
+        "confidence": { "type": "number" },
+        "reason": { "type": "string" },
+        "risk": { "type": "string" },
+        "guard": { "$ref": "#/$defs/guardResult" },
+        "duplicate_ids": { "type": "array", "items": { "type": "string" } },
+        "source": { "type": "object" }
+        ,
+        "audit_ids": { "type": "array", "items": { "type": "string" } },
+        "permission": { "$ref": "permission-decision.schema.json" }
+      },
+      "additionalProperties": false
+    }
+  }
+}

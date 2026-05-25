@@ -1,0 +1,124 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://kira-agent.local/schemas/conversation-transcript.schema.json",
+  "title": "ConversationTranscript",
+  "type": "object",
+  "$defs": {
+    "conversation": {
+      "type": "object",
+      "required": ["id", "status", "archived", "created_at", "updated_at"],
+      "properties": {
+        "id": { "type": "string" },
+        "title": { "type": ["string", "null"] },
+        "status": { "type": "string", "enum": ["active", "archived"] },
+        "archived": { "type": "boolean" },
+        "active_head_message_id": { "type": ["string", "null"] },
+        "forked_from_conversation_id": { "type": ["string", "null"] },
+        "forked_from_message_id": { "type": ["string", "null"] },
+        "forked_from_turn_id": { "type": ["string", "null"] },
+        "created_at": { "type": "string" },
+        "updated_at": { "type": "string" }
+      },
+      "additionalProperties": false
+    },
+    "conversationRunLink": {
+      "type": "object",
+      "required": ["conversation_id", "turn_id", "thread_id", "created_at"],
+      "properties": {
+        "conversation_id": { "type": "string" },
+        "turn_id": { "type": "string" },
+        "thread_id": { "type": "string" },
+        "created_at": { "type": "string" }
+      },
+      "additionalProperties": false
+    },
+    "turn": {
+      "type": "object",
+      "required": ["turn_id", "conversation_id", "status", "prompt", "created_at", "updated_at"],
+      "properties": {
+        "turn_id": { "type": "string" },
+        "conversation_id": { "type": "string" },
+        "thread_id": { "type": ["string", "null"] },
+        "user_message_id": { "type": ["string", "null"] },
+        "assistant_message_id": { "type": ["string", "null"] },
+        "status": { "type": "string" },
+        "prompt": { "type": "string" },
+        "created_at": { "type": "string" },
+        "updated_at": { "type": "string" }
+      },
+      "additionalProperties": false
+    },
+    "message": {
+      "type": "object",
+      "required": ["id", "conversation_id", "role", "status", "branch_status", "parts", "created_at", "updated_at"],
+      "properties": {
+        "id": { "type": "string" },
+        "conversation_id": { "type": "string" },
+        "turn_id": { "type": ["string", "null"] },
+        "thread_id": { "type": ["string", "null"] },
+        "parent_message_id": { "type": ["string", "null"] },
+        "logical_parent_message_id": { "type": ["string", "null"] },
+        "role": { "type": "string", "enum": ["user", "assistant", "tool", "system"] },
+        "status": { "type": "string", "enum": ["draft", "streaming", "completed", "error", "cancelled"] },
+        "branch_status": { "type": "string" },
+        "parts": { "type": "array", "items": { "$ref": "#/$defs/part" } },
+        "created_at": { "type": "string" },
+        "updated_at": { "type": "string" }
+      },
+      "additionalProperties": false
+    },
+    "part": {
+      "type": "object",
+      "required": ["id", "message_id", "conversation_id", "kind", "seq", "text", "payload", "visible", "token_estimate", "created_at"],
+      "properties": {
+        "id": { "type": "string" },
+        "message_id": { "type": "string" },
+        "conversation_id": { "type": "string" },
+        "turn_id": { "type": ["string", "null"] },
+        "thread_id": { "type": ["string", "null"] },
+        "kind": { "type": "string" },
+        "seq": { "type": "integer" },
+        "text": { "type": "string" },
+        "payload": { "type": "object" },
+        "visible": { "type": "boolean" },
+        "token_estimate": { "type": "integer" },
+        "created_at": { "type": "string" }
+      },
+      "additionalProperties": false
+    },
+    "contextTrace": {
+      "type": "object",
+      "required": ["conversation_id", "included", "omitted"],
+      "properties": {
+        "conversation_id": { "type": "string" },
+        "turn_id": { "type": ["string", "null"] },
+        "active_head_message_id": { "type": ["string", "null"] },
+        "branch": { "type": "object" },
+        "audit_ids": { "type": "array", "items": { "type": "string" } },
+        "permission_decisions": { "type": "array", "items": { "$ref": "permission-decision.schema.json" } },
+        "trace_export_refs": { "type": "array", "items": { "type": "object" } },
+        "included": { "type": "array", "items": { "type": "object" } },
+        "truncated": { "type": "array", "items": { "type": "object" } },
+        "omitted": { "type": "array", "items": { "type": "object" } },
+        "summaries": { "type": "array", "items": { "$ref": "compaction-summary.schema.json" } },
+        "overflow_compaction": { "type": "object" }
+      },
+      "additionalProperties": true
+    },
+    "transcriptResponse": {
+      "type": "object",
+      "required": ["conversation_id", "messages"],
+      "properties": {
+        "conversation_id": { "type": "string" },
+        "messages": { "type": "array", "items": { "$ref": "#/$defs/message" } },
+        "compaction_summaries": { "type": "array", "items": { "$ref": "compaction-summary.schema.json" } },
+        "tool_output_replacements": { "type": "array", "items": { "$ref": "tool-output-replacement.schema.json" } },
+        "branch_records": { "type": "array", "items": { "$ref": "conversation-branching.schema.json#/$defs/branchRecord" } },
+        "active_head_transitions": { "type": "array", "items": { "$ref": "conversation-branching.schema.json#/$defs/activeHeadTransition" } },
+        "audit_ids": { "type": "array", "items": { "type": "string" } },
+        "trace_export_refs": { "type": "array", "items": { "type": "object" } }
+      },
+      "additionalProperties": false
+    }
+  }
+}

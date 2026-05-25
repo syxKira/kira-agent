@@ -1,0 +1,40 @@
+schema: spec-driven
+
+context: |
+  Project: Kira Agent, a general local web agent.
+  Roadmap source: kira-agent-roadmap.
+  Runtime: Python FastAPI backend in server/, TypeScript Vite React frontend in web/, shared contracts in src/.
+  Development style: stage-by-stage OpenSpec changes.
+
+  Provider rule: real LLM access uses an OpenAI-compatible provider adapter plus a deterministic fixture provider.
+  Provider config path: ~/.kira-agent/config.yaml by default, overridable through KIRA_CONFIG_PATH.
+  Provider profile shape: preset, provider, baseURL, apiKey, model, timeout, retry.
+  Provider preset: Minimax Global maps to provider openai and baseURL https://api.minimax.io/v1.
+  Provider selection: request override wins, then validated skill model hint, then configured default, then fixture fallback when no valid key exists and local policy permits.
+  Provider stream mapping: visible remote content maps to text_delta, reasoning/thinking/<think> content maps to thinking_delta, normal finish maps to done, upstream failures map to structured error.
+  Provider secrecy: apiKey must never be written to project-root files, frontend output, graph state, checkpoints, traces, memory, or skill manifests. Display/log/API output must redact secrets.
+
+  LangChain rule: use only langchain-core @tool and BaseTool for tool protocol, JSON Schema, and validation. Do not use LangChain agents, chains, memory, prompt templates, or provider abstractions.
+  LangGraph rule: use only StateGraph, ToolNode, conditional edges, SQLite checkpointer, interrupt, and astream_events.
+  Workflow rule: concrete business workflows belong to skills, not Kira core.
+  Transcript rule: conversation_id owns multi-turn continuity; thread_id owns one run/resume cursor. Transcript context is built from the active parent chain, explicit compaction summaries, recent visible turns, and bounded tool summaries/replacement stubs. Hidden thinking must not enter visible transcript or provider conversation history.
+  File rule: project-local file access is read-only; no write/edit/delete/patch/stage tools.
+  Execution rule: no general shell tool; only controlled Python execution.
+  Web design rule: Stage 10 and Stage 11 are the first web polish passes. Stage 12-15 supersede the default product surface with a cis-mira-informed, turn-based, Mira-like conversation UI. Keep one Kira agent on the welcome screen, preserve hidden-thinking boundaries, move diagnostics out of the default chat surface, and verify desktop/narrow screenshots.
+
+rules:
+  proposal:
+    - Keep each change focused on one roadmap stage or one explicitly named focused capability.
+    - Include Scope, Non-goals, Acceptance Criteria, and Risks.
+    - Explicitly state which future stages are out of scope.
+  design:
+    - Call out backend, frontend, shared contracts, provider config/selection, streaming, transcript/context, persistence, permissions, and testing impact when relevant.
+    - Preserve the server/web/src layout.
+    - Do not introduce dependencies outside the roadmap without explaining why.
+  specs:
+    - Use SHALL-style requirements.
+    - Include acceptance scenarios for changed provider, graph, tool, UI, persistence, or safety behavior.
+  tasks:
+    - Keep tasks independently reviewable and small enough to apply incrementally.
+    - Include tests or smoke checks for every meaningful slice.
+    - Mark tasks complete only after implementation and relevant verification.

@@ -1,0 +1,27 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://kira-agent.local/schemas/audit-record.schema.json",
+  "title": "AuditRecord",
+  "type": "object",
+  "required": ["id", "action", "status", "redacted", "metadata", "created_at"],
+  "properties": {
+    "id": { "type": "string" },
+    "action": { "type": "string" },
+    "status": { "type": "string" },
+    "decision": { "type": ["string", "null"], "enum": ["allow", "ask", "deny", null] },
+    "thread_id": { "type": ["string", "null"] },
+    "conversation_id": { "type": ["string", "null"] },
+    "turn_id": { "type": ["string", "null"] },
+    "provider": { "type": ["string", "null"] },
+    "model": { "type": ["string", "null"] },
+    "tool": { "type": ["string", "null"] },
+    "skill_id": { "type": ["string", "null"] },
+    "memory_id": { "type": ["string", "null"] },
+    "project_root": { "type": ["string", "null"] },
+    "metadata": { "type": "object" },
+    "summary": { "type": ["string", "null"] },
+    "redacted": { "type": "boolean" },
+    "created_at": { "type": "string" }
+  },
+  "additionalProperties": true
+}

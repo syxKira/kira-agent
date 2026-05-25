@@ -1,0 +1,63 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://kira-agent.local/schemas/conversation-branching.schema.json",
+  "title": "ConversationBranching",
+  "type": "object",
+  "$defs": {
+    "branchRecord": {
+      "type": "object",
+      "required": [
+        "id",
+        "operation",
+        "source_conversation_id",
+        "target_conversation_id",
+        "reason",
+        "status",
+        "created_at",
+        "updated_at"
+      ],
+      "properties": {
+        "id": { "type": "string" },
+        "operation": { "type": "string", "enum": ["fork", "rollback"] },
+        "source_conversation_id": { "type": "string" },
+        "target_conversation_id": { "type": "string" },
+        "source_message_id": { "type": ["string", "null"] },
+        "source_turn_id": { "type": ["string", "null"] },
+        "previous_active_head_id": { "type": ["string", "null"] },
+        "new_active_head_id": { "type": ["string", "null"] },
+        "reason": { "type": "object" },
+        "status": { "type": "string" },
+        "created_at": { "type": "string" },
+        "updated_at": { "type": "string" }
+      },
+      "additionalProperties": false
+    },
+    "activeHeadTransition": {
+      "type": "object",
+      "required": ["id", "conversation_id", "operation", "reason", "created_at"],
+      "properties": {
+        "id": { "type": "string" },
+        "conversation_id": { "type": "string" },
+        "operation": { "type": "string", "enum": ["fork", "rollback"] },
+        "previous_active_head_id": { "type": ["string", "null"] },
+        "new_active_head_id": { "type": ["string", "null"] },
+        "branch_record_id": { "type": ["string", "null"] },
+        "reason": { "type": "object" },
+        "created_at": { "type": "string" }
+      },
+      "additionalProperties": false
+    },
+    "operationResponse": {
+      "type": "object",
+      "required": ["conversation", "branch_record", "active_head_transition", "inactive_message_ids"],
+      "properties": {
+        "conversation": { "$ref": "conversation-transcript.schema.json#/$defs/conversation" },
+        "branch_record": { "$ref": "#/$defs/branchRecord" },
+        "active_head_transition": { "$ref": "#/$defs/activeHeadTransition" },
+        "active_head_message_id": { "type": ["string", "null"] },
+        "inactive_message_ids": { "type": "array", "items": { "type": "string" } }
+      },
+      "additionalProperties": false
+    }
+  }
+}

@@ -1,0 +1,30 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://kira-agent.local/schemas/failure-metadata.schema.json",
+  "title": "FailureMetadata",
+  "type": "object",
+  "required": ["failure_class"],
+  "properties": {
+    "failure_class": {
+      "type": "string",
+      "enum": [
+        "validation_error",
+        "permission_error",
+        "timeout_error",
+        "transient_external_error",
+        "provider_config_error",
+        "provider_stream_error",
+        "tool_error",
+        "side_effect_conflict",
+        "cancelled",
+        "invariant_error"
+      ]
+    },
+    "code": { "type": "string" },
+    "message": { "type": "string" },
+    "retryable": { "type": "boolean" },
+    "attempt": { "type": "integer", "minimum": 0 },
+    "metadata": { "type": "object" }
+  },
+  "additionalProperties": true
+}

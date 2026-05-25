@@ -1,0 +1,46 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://kira-agent.local/schemas/compact-conversation.schema.json",
+  "title": "CompactConversation",
+  "type": "object",
+  "$defs": {
+    "thresholds": {
+      "type": "object",
+      "properties": {
+        "max_raw_messages": { "type": "integer", "minimum": 1 },
+        "max_estimated_tokens": { "type": "integer", "minimum": 100 },
+        "max_estimated_chars": { "type": "integer", "minimum": 500 },
+        "budget_pressure_ratio": { "type": "number", "minimum": 0.1, "maximum": 1.0 }
+      },
+      "additionalProperties": false
+    },
+    "request": {
+      "type": "object",
+      "properties": {
+        "summarizer_mode": { "type": "string", "enum": ["fixture", "real", "auto"] },
+        "provider": { "type": "string" },
+        "model": { "type": "string" },
+        "tail_messages": { "type": "integer", "minimum": 0 },
+        "max_source_messages": { "type": ["integer", "null"], "minimum": 1 },
+        "refresh": { "type": "boolean" },
+        "trigger": { "type": "string", "enum": ["manual", "overflow", "refresh"] },
+        "thresholds": { "$ref": "#/$defs/thresholds" }
+      },
+      "additionalProperties": false
+    },
+    "response": {
+      "type": "object",
+      "required": ["conversation_id", "summary", "context_item", "replaced_raw_messages", "status", "omitted"],
+      "properties": {
+        "conversation_id": { "type": "string" },
+        "summary": { "$ref": "compaction-summary.schema.json" },
+        "context_item": { "$ref": "context-item.schema.json" },
+        "replaced_raw_messages": { "type": "integer", "minimum": 0 },
+        "tail_start_message_id": { "type": ["string", "null"] },
+        "status": { "type": "string" },
+        "omitted": { "type": "array", "items": { "type": "object" } }
+      },
+      "additionalProperties": false
+    }
+  }
+}

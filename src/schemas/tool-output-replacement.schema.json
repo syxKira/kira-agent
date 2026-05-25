@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://kira-agent.local/schemas/tool-output-replacement.schema.json",
+  "title": "ToolOutputReplacement",
+  "type": "object",
+  "required": ["id", "conversation_id", "message_id", "tool_name", "output_hash", "summary", "omitted_char_count", "reason", "retention_policy", "status", "redacted_reference", "created_at", "updated_at"],
+  "properties": {
+    "id": { "type": "string" },
+    "conversation_id": { "type": "string" },
+    "turn_id": { "type": ["string", "null"] },
+    "thread_id": { "type": ["string", "null"] },
+    "message_id": { "type": "string" },
+    "part_id": { "type": ["string", "null"] },
+    "tool_name": { "type": "string" },
+    "output_hash": { "type": "string" },
+    "summary": { "type": "string" },
+    "omitted_char_count": { "type": "integer", "minimum": 0 },
+    "reason": { "type": "string", "enum": ["too_large", "secret_guard", "manual_clear", "compaction_prune"] },
+    "retention_policy": { "type": "string", "enum": ["none", "debug_only", "local_blob"] },
+    "status": { "type": "string", "enum": ["active", "invalidated"] },
+    "redacted_reference": { "type": "object" },
+    "created_at": { "type": "string" },
+    "updated_at": { "type": "string" }
+  },
+  "additionalProperties": false
+}

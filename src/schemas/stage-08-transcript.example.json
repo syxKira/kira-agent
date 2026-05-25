@@ -1,0 +1,212 @@
+{
+  "conversation": {
+    "id": "conv_example",
+    "title": "hello",
+    "status": "active",
+    "archived": false,
+    "active_head_message_id": "msg_assistant_1",
+    "created_at": "2026-05-14T00:00:00Z",
+    "updated_at": "2026-05-14T00:00:03Z"
+  },
+  "turn": {
+    "turn_id": "turn_example",
+    "conversation_id": "conv_example",
+    "thread_id": "local-example",
+    "user_message_id": "msg_user_1",
+    "assistant_message_id": "msg_assistant_1",
+    "status": "completed",
+    "prompt": "hello",
+    "created_at": "2026-05-14T00:00:00Z",
+    "updated_at": "2026-05-14T00:00:03Z"
+  },
+  "messages": [
+    {
+      "id": "msg_user_1",
+      "conversation_id": "conv_example",
+      "turn_id": "turn_example",
+      "thread_id": "local-example",
+      "parent_message_id": null,
+      "logical_parent_message_id": null,
+      "role": "user",
+      "status": "completed",
+      "branch_status": "active",
+      "parts": [
+        {
+          "id": "part_user_1",
+          "message_id": "msg_user_1",
+          "conversation_id": "conv_example",
+          "turn_id": "turn_example",
+          "thread_id": "local-example",
+          "kind": "text",
+          "seq": 1,
+          "text": "hello",
+          "payload": {},
+          "visible": true,
+          "token_estimate": 2,
+          "created_at": "2026-05-14T00:00:00Z"
+        }
+      ],
+      "created_at": "2026-05-14T00:00:00Z",
+      "updated_at": "2026-05-14T00:00:00Z"
+    },
+    {
+      "id": "msg_assistant_1",
+      "conversation_id": "conv_example",
+      "turn_id": "turn_example",
+      "thread_id": "local-example",
+      "parent_message_id": "msg_user_1",
+      "logical_parent_message_id": "msg_user_1",
+      "role": "assistant",
+      "status": "completed",
+      "branch_status": "active",
+      "parts": [
+        {
+          "id": "part_assistant_1",
+          "message_id": "msg_assistant_1",
+          "conversation_id": "conv_example",
+          "turn_id": "turn_example",
+          "thread_id": "local-example",
+          "kind": "text",
+          "seq": 1,
+          "text": "Hi.",
+          "payload": {},
+          "visible": true,
+          "token_estimate": 1,
+          "created_at": "2026-05-14T00:00:02Z"
+        }
+      ],
+      "created_at": "2026-05-14T00:00:00Z",
+      "updated_at": "2026-05-14T00:00:03Z"
+    }
+  ],
+  "run_response": {
+    "thread_id": "local-example",
+    "conversation_id": "conv_example",
+    "turn_id": "turn_example",
+    "status": "created",
+    "fixture": null,
+    "events_url": "/api/runs/local-example/events",
+    "resume_url": null,
+    "provider": {
+      "mode": "real",
+      "source": "config",
+      "provider": "openai",
+      "name": "minimax-global",
+      "model": "MiniMax-Text-01",
+      "has_api_key": true
+    },
+    "skill": null,
+    "context": {
+      "included_count": 3,
+      "omitted_count": 1,
+      "truncated_count": 0
+    }
+  },
+  "mixed_context_trace": {
+    "thread_id": "local-example-2",
+    "budget": {
+      "max_items": 16,
+      "max_chars": 12000,
+      "max_item_chars": 3000
+    },
+    "included": [
+      {
+        "id": "ctx_conversation_msg_user_1",
+        "kind": "conversation_history",
+        "text": "User: hello",
+        "payload": {},
+        "metadata": {
+          "conversation_id": "conv_example",
+          "turn_id": "turn_example",
+          "message_id": "msg_user_1",
+          "role": "user"
+        },
+        "trust": "user_supplied",
+        "budget_cost": 11,
+        "citations": [
+          {
+            "root_id": "conv_example",
+            "path": "conversation://conv_example/msg_user_1",
+            "citation_type": "conversation",
+            "citation_id": "msg_user_1",
+            "memory_id": null,
+            "start_line": null,
+            "end_line": null,
+            "chunk_id": null,
+            "content_hash": null,
+            "indexed_at": null,
+            "stale": false,
+            "query": null
+          }
+        ]
+      },
+      {
+        "id": "ctx_project_readme",
+        "kind": "project_file",
+        "text": "README excerpt",
+        "payload": {},
+        "metadata": {
+          "path": "README.md"
+        },
+        "trust": "untrusted_project",
+        "budget_cost": 14,
+        "citations": []
+      },
+      {
+        "id": "ctx_memory_preference",
+        "kind": "memory",
+        "text": "User prefers concise answers.",
+        "payload": {},
+        "metadata": {
+          "memory_id": "mem_example"
+        },
+        "trust": "runtime_generated",
+        "budget_cost": 29,
+        "citations": []
+      }
+    ],
+    "truncated": [],
+    "omitted": [
+      {
+        "id": "ctx_tool_summary_large",
+        "kind": "tool_summary",
+        "reason": "budget_exhausted"
+      }
+    ],
+    "provider": {
+      "mode": "real",
+      "source": "config",
+      "provider": "openai",
+      "name": "minimax-global",
+      "model": "MiniMax-Text-01",
+      "has_api_key": true
+    },
+    "selected_skills": [],
+    "project": {
+      "query": "README"
+    },
+    "memory": {
+      "query": "preferences",
+      "selected_memory_ids": ["mem_example"]
+    },
+    "transcript": {
+      "conversation_id": "conv_example",
+      "turn_id": "turn_example_2",
+      "active_head_message_id": "msg_assistant_1",
+      "included": [
+        {
+          "message_id": "msg_user_1",
+          "turn_id": "turn_example",
+          "budget_cost": 11
+        }
+      ],
+      "truncated": [],
+      "omitted": [
+        {
+          "message_id": "msg_tool_1",
+          "reason": "budget_exhausted"
+        }
+      ]
+    }
+  }
+}

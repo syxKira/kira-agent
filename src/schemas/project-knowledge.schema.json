@@ -1,0 +1,46 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://kira-agent.local/schemas/project-knowledge.schema.json",
+  "title": "ProjectKnowledge",
+  "type": "object",
+  "$defs": {
+    "indexStatus": {
+      "type": "object",
+      "required": ["root_id", "root", "status", "file_count", "chunk_count", "skipped_count", "omitted_count"],
+      "properties": {
+        "root_id": { "type": "string" },
+        "root": { "type": "string" },
+        "status": { "type": "string" },
+        "file_count": { "type": "integer" },
+        "chunk_count": { "type": "integer" },
+        "skipped_count": { "type": "integer" },
+        "omitted_count": { "type": "integer" },
+        "last_refresh_at": { "type": ["string", "null"] },
+        "fts_available": { "type": "boolean" },
+        "metadata": { "type": "object" },
+        "audit_ids": { "type": "array", "items": { "type": "string" } },
+        "permission": { "$ref": "permission-decision.schema.json" },
+        "doctor_status": { "type": ["string", "null"] }
+      },
+      "additionalProperties": true
+    },
+    "searchResponse": {
+      "type": "object",
+      "required": ["root_id", "root", "query", "results", "omitted_count", "truncated"],
+      "properties": {
+        "root_id": { "type": "string" },
+        "root": { "type": "string" },
+        "query": { "type": "string" },
+        "results": { "type": "array", "items": { "type": "object" } },
+        "omitted_count": { "type": "integer" },
+        "truncated": { "type": "boolean" },
+        "used_index": { "type": "boolean" },
+        "used_live": { "type": "boolean" },
+        "audit_ids": { "type": "array", "items": { "type": "string" } },
+        "permission": { "$ref": "permission-decision.schema.json" },
+        "trace_export_refs": { "type": "array", "items": { "type": "object" } }
+      },
+      "additionalProperties": true
+    }
+  }
+}

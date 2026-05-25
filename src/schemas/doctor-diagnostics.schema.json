@@ -1,0 +1,33 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://kira-agent.local/schemas/doctor-diagnostics.schema.json",
+  "title": "DoctorDiagnostics",
+  "type": "object",
+  "required": ["status", "checks", "generated_at"],
+  "properties": {
+    "status": { "type": "string", "enum": ["ok", "warning", "error"] },
+    "generated_at": { "type": "string" },
+    "checks": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/check" }
+    },
+    "versions": { "type": "object" },
+    "deep_checks": { "type": "object" }
+  },
+  "$defs": {
+    "check": {
+      "type": "object",
+      "required": ["component", "status", "severity", "message"],
+      "properties": {
+        "component": { "type": "string" },
+        "status": { "type": "string", "enum": ["ok", "warning", "error", "skipped"] },
+        "severity": { "type": "string", "enum": ["info", "warning", "error"] },
+        "message": { "type": "string" },
+        "remediation": { "type": ["string", "null"] },
+        "evidence": { "type": "object" }
+      },
+      "additionalProperties": true
+    }
+  },
+  "additionalProperties": true
+}

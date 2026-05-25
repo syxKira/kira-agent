@@ -1,0 +1,47 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://kira-agent.local/schemas/skill-metadata.schema.json",
+  "title": "SkillMetadata",
+  "type": "object",
+  "required": ["skill_id", "name", "workflows", "allowed_tools"],
+  "properties": {
+    "skill_id": {
+      "type": "string"
+    },
+    "name": {
+      "type": "string"
+    },
+    "description": {
+      "type": "string"
+    },
+    "when_to_use": {
+      "type": ["string", "null"]
+    },
+    "invocation": {
+      "type": "object",
+      "properties": {
+        "argument_hint": { "type": ["string", "null"] },
+        "disable_model_invocation": { "type": "boolean" },
+        "user_invocable": { "type": "boolean" },
+        "model_invocable": { "type": "boolean" }
+      },
+      "additionalProperties": false
+    },
+    "workflows": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      }
+    },
+    "allowed_tools": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "model_hint": {
+      "type": ["string", "object", "null"]
+    }
+  },
+  "additionalProperties": true
+}

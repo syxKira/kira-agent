@@ -1,0 +1,28 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://kira-agent.local/schemas/trace-export.schema.json",
+  "title": "TraceExport",
+  "type": "object",
+  "required": ["scope", "redacted", "generated_at", "truncated"],
+  "properties": {
+    "scope": { "type": "string" },
+    "thread_id": { "type": ["string", "null"] },
+    "conversation_id": { "type": ["string", "null"] },
+    "root_id": { "type": ["string", "null"] },
+    "memory_id": { "type": ["string", "null"] },
+    "generated_at": { "type": "string" },
+    "redacted": { "type": "boolean" },
+    "truncated": { "type": "boolean" },
+    "limit": { "type": "integer" },
+    "state": { "type": ["object", "null"] },
+    "events": { "type": "array", "items": { "type": "object" } },
+    "audit": { "type": "array", "items": { "$ref": "audit-record.schema.json" } },
+    "context": { "type": ["object", "null"] },
+    "provider_attempts": { "type": "array", "items": { "type": "object" } },
+    "side_effects": { "type": "array", "items": { "type": "object" } },
+    "transcript": { "type": ["object", "null"] },
+    "project": { "type": ["object", "null"] },
+    "memory": { "type": ["object", "null"] }
+  },
+  "additionalProperties": true
+}

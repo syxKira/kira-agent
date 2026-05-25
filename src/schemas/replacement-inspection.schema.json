@@ -1,0 +1,18 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://kira-agent.local/schemas/replacement-inspection.schema.json",
+  "title": "ReplacementInspection",
+  "type": "object",
+  "required": ["replacement_id", "status", "redacted", "metadata"],
+  "properties": {
+    "replacement_id": { "type": "string" },
+    "status": { "type": "string", "enum": ["allowed", "denied", "missing"] },
+    "content": { "type": ["string", "null"] },
+    "reason": { "type": ["string", "null"] },
+    "redacted": { "type": "boolean" },
+    "audit_id": { "type": ["string", "null"] },
+    "metadata": { "type": "object" },
+    "permission": { "$ref": "permission-decision.schema.json" }
+  },
+  "additionalProperties": true
+}

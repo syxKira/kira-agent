@@ -1,0 +1,28 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://kira-agent.local/schemas/tool-result.schema.json",
+  "title": "ToolResult",
+  "type": "object",
+  "required": ["ok", "code", "message", "data", "metadata", "truncated"],
+  "properties": {
+    "ok": {
+      "type": "boolean"
+    },
+    "code": {
+      "type": "string"
+    },
+    "message": {
+      "type": "string"
+    },
+    "data": {
+      "type": "object"
+    },
+    "metadata": {
+      "type": "object"
+    },
+    "truncated": {
+      "type": "boolean"
+    }
+  },
+  "additionalProperties": false
+}

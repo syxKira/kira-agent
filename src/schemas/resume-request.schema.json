@@ -1,0 +1,30 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://kira-agent.local/schemas/resume-request.schema.json",
+  "title": "ResumeRequest",
+  "type": "object",
+  "required": ["interrupt_id", "decision"],
+  "properties": {
+    "interrupt_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 96
+    },
+    "decision": {
+      "type": "string",
+      "enum": ["approve", "reject", "submit"]
+    },
+    "value": {
+      "type": "string",
+      "maxLength": 8000
+    },
+    "reason": {
+      "type": "string",
+      "maxLength": 1000
+    },
+    "data": {
+      "type": "object"
+    }
+  },
+  "additionalProperties": false
+}

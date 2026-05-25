@@ -1,0 +1,56 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "fixtures": {
+    "welcome": [
+      {
+        "type": "thinking_delta",
+        "data": {
+          "text": "Preparing local fixture run"
+        }
+      },
+      {
+        "type": "text_delta",
+        "data": {
+          "kind": "fixture_tool_result",
+          "name": "welcome_fixture",
+          "result": {
+            "status": "ok",
+            "message": "Fixture event stream ready"
+          }
+        }
+      },
+      {
+        "type": "text_delta",
+        "data": {
+          "text": "Kira local fixture is running."
+        }
+      },
+      {
+        "type": "text_delta",
+        "data": {
+          "text": " The Stage 01 web loop is ready."
+        }
+      },
+      {
+        "type": "done",
+        "data": {
+          "message": "Fixture run completed"
+        }
+      }
+    ],
+    "error": [
+      {
+        "type": "thinking_delta",
+        "data": {
+          "text": "Preparing error fixture"
+        }
+      },
+      {
+        "type": "error",
+        "data": {
+          "message": "Fixture error for failure-state testing"
+        }
+      }
+    ]
+  }
+}

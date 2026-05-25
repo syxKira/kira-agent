@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://kira-agent.local/schemas/permission-decision.schema.json",
+  "title": "PermissionDecision",
+  "type": "object",
+  "required": ["action", "decision", "reasons", "subject", "redacted", "audit"],
+  "properties": {
+    "action": { "type": "string" },
+    "decision": { "type": "string", "enum": ["allow", "ask", "deny"] },
+    "reasons": { "type": "array", "items": { "type": "string" } },
+    "subject": { "type": "object" },
+    "redacted": { "type": "boolean" },
+    "audit": { "type": "object" },
+    "created_at": { "type": "string" }
+  },
+  "additionalProperties": true
+}

@@ -1,0 +1,24 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://kira-agent.local/schemas/side-effect-ledger.schema.json",
+  "title": "SideEffectLedgerSummary",
+  "type": "object",
+  "required": ["idempotency_key", "thread_id", "checkpoint_id", "node", "tool", "status"],
+  "properties": {
+    "idempotency_key": { "type": "string" },
+    "thread_id": { "type": "string" },
+    "checkpoint_id": { "type": "string" },
+    "node": { "type": "string" },
+    "tool": { "type": "string" },
+    "args_hash": { "type": "string" },
+    "status": {
+      "type": "string",
+      "enum": ["planned", "started", "completed", "failed", "unknown"]
+    },
+    "result_hash": { "type": ["string", "null"] },
+    "result_summary": { "type": ["object", "array", "string", "number", "boolean", "null"] },
+    "external_ref": { "type": ["string", "null"] },
+    "audit_ref": { "type": ["string", "null"] }
+  },
+  "additionalProperties": true
+}

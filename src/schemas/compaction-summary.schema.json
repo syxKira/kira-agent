@@ -1,0 +1,30 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://kira-agent.local/schemas/compaction-summary.schema.json",
+  "title": "CompactionSummary",
+  "type": "object",
+  "required": ["id", "conversation_id", "source_message_ids", "source_turn_ids", "replacement_ids", "source_hash", "summary", "source_token_estimate", "summary_token_estimate", "summarizer", "status", "stale", "trigger", "created_at", "updated_at"],
+  "properties": {
+    "id": { "type": "string" },
+    "conversation_id": { "type": "string" },
+    "source_first_message_id": { "type": ["string", "null"] },
+    "source_last_message_id": { "type": ["string", "null"] },
+    "source_message_ids": { "type": "array", "items": { "type": "string" } },
+    "source_turn_ids": { "type": "array", "items": { "type": "string" } },
+    "replacement_ids": { "type": "array", "items": { "type": "string" } },
+    "source_hash": { "type": "string" },
+    "tail_start_message_id": { "type": ["string", "null"] },
+    "summary": { "type": "string" },
+    "source_token_estimate": { "type": "integer", "minimum": 0 },
+    "summary_token_estimate": { "type": "integer", "minimum": 0 },
+    "summarizer": { "type": "object" },
+    "status": { "type": "string", "enum": ["active", "stale", "error"] },
+    "stale": { "type": "boolean" },
+    "stale_reason": { "type": ["string", "null"] },
+    "previous_summary_id": { "type": ["string", "null"] },
+    "trigger": { "type": "string" },
+    "created_at": { "type": "string" },
+    "updated_at": { "type": "string" }
+  },
+  "additionalProperties": false
+}

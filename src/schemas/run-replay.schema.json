@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://kira-agent.local/schemas/run-replay.schema.json",
+  "title": "RunReplayExport",
+  "type": "object",
+  "required": ["thread_id", "state", "events"],
+  "properties": {
+    "thread_id": { "type": "string" },
+    "state": { "$ref": "run-state.schema.json" },
+    "events": {
+      "type": "array",
+      "items": { "$ref": "kira-event.schema.json" }
+    },
+    "audit": { "type": "array", "items": { "$ref": "audit-record.schema.json" } },
+    "trace_export": { "$ref": "trace-export.schema.json" },
+    "redacted": { "type": "boolean" }
+  },
+  "additionalProperties": true
+}

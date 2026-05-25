@@ -1,0 +1,51 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "tools": [
+    {
+      "name": "list_project_files",
+      "description": "List bounded read-only project files under an allowed root.",
+      "risk": "read_only_project_files"
+    },
+    {
+      "name": "search_project_files",
+      "description": "Search bounded read-only project text under an allowed root.",
+      "risk": "read_only_project_files"
+    },
+    {
+      "name": "read_project_file",
+      "description": "Read a bounded slice of a project-local text file.",
+      "risk": "read_only_project_files"
+    },
+    {
+      "name": "run_python_script",
+      "description": "Run a project-local Python script with cwd, env, timeout, and output controls.",
+      "risk": "controlled_python_execution"
+    },
+    {
+      "name": "ask_user_question",
+      "description": "Return a pending human question payload for later HITL integration.",
+      "risk": "hitl_placeholder"
+    }
+  ],
+  "success_result": {
+    "ok": true,
+    "code": "files_listed",
+    "message": "Project files listed",
+    "data": {
+      "files": ["README.md"]
+    },
+    "metadata": {
+      "count": 1,
+      "omitted_count": 0
+    },
+    "truncated": false
+  },
+  "error_result": {
+    "ok": false,
+    "code": "path_outside_root",
+    "message": "Path resolves outside the project root or does not exist",
+    "data": {},
+    "metadata": {},
+    "truncated": false
+  }
+}

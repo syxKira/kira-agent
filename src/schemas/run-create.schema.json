@@ -1,0 +1,62 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://kira-agent.local/schemas/run-create.schema.json",
+  "title": "RunCreate",
+  "type": "object",
+  "$defs": {
+    "request": {
+      "type": "object",
+      "required": ["prompt"],
+      "properties": {
+        "prompt": { "type": "string", "minLength": 1 },
+        "conversation_id": { "type": "string" },
+        "project_root": { "type": "string" },
+        "skill_id": { "type": "string" },
+        "skill_ids": { "type": "array", "items": { "type": "string" } },
+        "disabled_skill_ids": { "type": "array", "items": { "type": "string" } },
+        "auto_route_skills": { "type": "boolean" },
+        "project_context_query": { "type": "string" },
+        "project_context_limit": { "type": "integer", "minimum": 0 },
+        "auto_project_context": { "type": "boolean" },
+        "include_memory": { "type": "boolean" },
+        "memory_query": { "type": "string" },
+        "memory_top_k": { "type": "integer", "minimum": 1 },
+        "memory_scopes": { "type": "array", "items": { "type": "string" } },
+        "memory_types": { "type": "array", "items": { "type": "string" } },
+        "context_budget": { "type": "object" },
+        "fixture": { "type": ["string", "null"] },
+        "provider_mode": { "type": "string", "enum": ["auto", "fixture", "real"] },
+        "provider": { "type": "string" },
+        "model": { "type": "string" },
+        "overflow_compaction_enabled": { "type": "boolean" },
+        "transcript_overflow_thresholds": { "$ref": "compact-conversation.schema.json#/$defs/thresholds" }
+      },
+      "additionalProperties": false
+    },
+    "response": {
+      "type": "object",
+      "required": ["thread_id", "status", "events_url", "provider"],
+      "properties": {
+        "thread_id": { "type": "string" },
+        "conversation_id": { "type": ["string", "null"] },
+        "turn_id": { "type": ["string", "null"] },
+        "status": { "type": "string" },
+        "fixture": { "type": ["string", "null"] },
+        "events_url": { "type": "string" },
+        "resume_url": { "type": ["string", "null"] },
+        "provider": { "$ref": "provider-metadata.schema.json" },
+        "skill": { "type": ["object", "null"] },
+        "context": {
+          "type": ["object", "null"],
+          "properties": {
+            "included_count": { "type": "integer", "minimum": 0 },
+            "omitted_count": { "type": "integer", "minimum": 0 },
+            "truncated_count": { "type": "integer", "minimum": 0 }
+          },
+          "additionalProperties": true
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}
