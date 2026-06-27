@@ -44,6 +44,12 @@ http://127.0.0.1:8000/
 
 `serve` mode uses same-origin `/api` requests and `KIRA_WEB_DIST` internally. Binding to `0.0.0.0` is supported with `--host 0.0.0.0`, but this does not add authentication, TLS, or public internet hardening.
 
+For server deployments that build first and start later, keep the `server/.venv` created by `uv sync` in the runtime image, then start the already-built app with:
+
+```bash
+cd /app && python scripts/kira serve --no-build --host 0.0.0.0 --port 8000
+```
+
 Focused backend/frontend development can still use separate terminals:
 
 ```bash
@@ -68,9 +74,10 @@ Use `VITE_KIRA_API_BASE` only for explicit split-host frontend deployments where
 
 ## Troubleshooting Startup
 
-- Missing `uv` or `pnpm`: install the missing command and rerun `scripts/kira dev` or `scripts/kira serve --build`.
+- Missing `uv` or `pnpm`: local `dev` and `serve --build` need both commands installed. Production `serve --no-build` can start from `server/.venv/bin/python` when the build step preserved the virtual environment.
 - Port already in use: pass `--api-port` or `--web-port` to `scripts/kira dev`, or `--port` to `scripts/kira serve`.
 - Missing frontend build: run `scripts/kira serve --build`, or run `cd web && pnpm build` before `scripts/kira serve --no-build`.
+- Missing server runtime: run `cd server && uv sync --frozen` during the build step and make sure `server/.venv` is present at startup.
 - Backend on a custom port during Vite development: set `VITE_KIRA_DEV_API_TARGET=http://127.0.0.1:<port>`.
 - Missing provider config: local fixture fallback still works; real provider config belongs in `~/.kira-agent/config.yaml` or `KIRA_CONFIG_PATH`, not in this repo.
 
