@@ -4,9 +4,32 @@ FastAPI backend for Kira Agent local development.
 
 ## Local Run
 
+Recommended one-command startup from the repository root:
+
+```bash
+scripts/kira dev
+```
+
+For a complete single-service run where FastAPI serves both the frontend and `/api/*` routes:
+
+```bash
+scripts/kira serve --build
+```
+
+The single-service path sets `KIRA_WEB_DIST` to the built Vite `dist` directory and serves the SPA shell at `/`. API routes keep the `/api/*` prefix, and unknown API routes remain API 404 responses instead of falling through to the frontend. Binding to `0.0.0.0` is possible with `scripts/kira serve --host 0.0.0.0`, but it does not add authentication, TLS, or public internet hardening.
+
+For backend-only development:
+
 ```bash
 cd server
 uv run uvicorn kira_server.main:app --reload
+```
+
+To serve an existing frontend build manually:
+
+```bash
+cd server
+KIRA_WEB_DIST=../web/dist uv run uvicorn kira_server.main:app --host 127.0.0.1 --port 8000
 ```
 
 ## Real Provider Config
@@ -46,6 +69,7 @@ uvicorn kira_server.main:app --reload
 ## Current Scope
 
 - Health endpoint.
+- Optional static frontend serving from `KIRA_WEB_DIST` or a discoverable `web/dist`, with SPA fallback for non-API routes.
 - `POST /api/runs` creates a provider-selected local run and returns `thread_id`, `conversation_id`, `turn_id`, status, fixture/provider metadata, and `events_url`.
 - `GET /api/runs/{thread_id}/events` streams Stage 01 SSE events for known runs.
 - `POST /api/conversations`, `GET /api/conversations`, `GET /api/conversations/{conversation_id}`, `PATCH /api/conversations/{conversation_id}`, `POST /api/conversations/{conversation_id}/compact`, `POST /api/conversations/{conversation_id}/fork`, `POST /api/conversations/{conversation_id}/rollback`, `GET /api/conversations/{conversation_id}/transcript`, and `GET /api/conversations/{conversation_id}/context` expose local conversation, transcript, Stage 08b compaction state, and Stage 08c branch state.
@@ -180,4 +204,11 @@ cd server
 uv run --extra dev pytest
 curl http://127.0.0.1:8000/api/doctor
 curl 'http://127.0.0.1:8000/api/audit?limit=20'
+```
+
+One-command smoke checks from the repository root:
+
+```bash
+scripts/kira smoke-dev
+scripts/kira smoke-serve
 ```

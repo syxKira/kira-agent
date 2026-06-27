@@ -16,14 +16,40 @@ kira-agent/
 
 ## Start Locally
 
-Start the backend:
+Prerequisites: `uv`, `pnpm`, Node.js, and Python 3.10+.
+
+Recommended one-command development startup:
+
+```bash
+scripts/kira dev
+```
+
+Open the printed Vite URL, usually:
+
+```text
+http://127.0.0.1:5173/
+```
+
+For a complete single-service run, build or verify the frontend bundle and serve both the web app and API from FastAPI:
+
+```bash
+scripts/kira serve --build
+```
+
+Open the printed FastAPI URL, usually:
+
+```text
+http://127.0.0.1:8000/
+```
+
+`serve` mode uses same-origin `/api` requests and `KIRA_WEB_DIST` internally. Binding to `0.0.0.0` is supported with `--host 0.0.0.0`, but this does not add authentication, TLS, or public internet hardening.
+
+Focused backend/frontend development can still use separate terminals:
 
 ```bash
 cd server
 uv run uvicorn kira_server.main:app --reload --host 127.0.0.1 --port 8000
 ```
-
-Start the frontend:
 
 ```bash
 cd web
@@ -31,18 +57,22 @@ pnpm install
 pnpm dev
 ```
 
-Open:
-
-```text
-http://127.0.0.1:5173/
-```
-
-By default, the frontend talks to `http://127.0.0.1:8000`. To override it:
+The frontend now uses same-origin `/api` by default. In Vite development, `/api` is proxied to `http://127.0.0.1:8000`; override the proxy target when needed:
 
 ```bash
 cd web
-VITE_KIRA_API_BASE=http://127.0.0.1:8000 pnpm dev
+VITE_KIRA_DEV_API_TARGET=http://127.0.0.1:9000 pnpm dev
 ```
+
+Use `VITE_KIRA_API_BASE` only for explicit split-host frontend deployments where browser requests should target a different API origin.
+
+## Troubleshooting Startup
+
+- Missing `uv` or `pnpm`: install the missing command and rerun `scripts/kira dev` or `scripts/kira serve --build`.
+- Port already in use: pass `--api-port` or `--web-port` to `scripts/kira dev`, or `--port` to `scripts/kira serve`.
+- Missing frontend build: run `scripts/kira serve --build`, or run `cd web && pnpm build` before `scripts/kira serve --no-build`.
+- Backend on a custom port during Vite development: set `VITE_KIRA_DEV_API_TARGET=http://127.0.0.1:<port>`.
+- Missing provider config: local fixture fallback still works; real provider config belongs in `~/.kira-agent/config.yaml` or `KIRA_CONFIG_PATH`, not in this repo.
 
 ## Provider Config
 
@@ -79,4 +109,11 @@ cd web
 pnpm typecheck
 pnpm test
 pnpm build
+```
+
+One-command startup smoke checks:
+
+```bash
+scripts/kira smoke-dev
+scripts/kira smoke-serve
 ```

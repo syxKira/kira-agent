@@ -34,10 +34,24 @@ import type {
   ToolOutputReplacement,
 } from "./types";
 
-const API_BASE = import.meta.env.VITE_KIRA_API_BASE ?? "http://127.0.0.1:8000";
+const API_BASE = normalizeApiBase(import.meta.env.VITE_KIRA_API_BASE);
+
+export function toApiUrl(pathOrUrl: string, base = API_BASE): string {
+  if (pathOrUrl.startsWith("http://") || pathOrUrl.startsWith("https://")) {
+    return pathOrUrl;
+  }
+
+  const path = pathOrUrl.startsWith("/") ? pathOrUrl : `/${pathOrUrl}`;
+  const normalizedBase = normalizeApiBase(base);
+  return normalizedBase ? `${normalizedBase}${path}` : path;
+}
+
+function normalizeApiBase(value?: string): string {
+  return value?.replace(/\/+$/, "") ?? "";
+}
 
 export async function createRun(request: RunCreateRequest): Promise<RunCreateResponse> {
-  const response = await fetch(`${API_BASE}/api/runs`, {
+  const response = await fetch(toApiUrl("/api/runs"), {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(request),
@@ -51,7 +65,7 @@ export async function createRun(request: RunCreateRequest): Promise<RunCreateRes
 }
 
 export async function getDoctor(): Promise<DoctorDiagnostics> {
-  const response = await fetch(`${API_BASE}/api/doctor`);
+  const response = await fetch(toApiUrl("/api/doctor"));
   if (!response.ok) {
     throw new Error(`Failed to get doctor diagnostics: ${response.status}`);
   }
@@ -66,7 +80,7 @@ export async function listAudit(params: Record<string, string | number | undefin
     }
   });
   const query = search.toString();
-  const response = await fetch(`${API_BASE}/api/audit${query ? `?${query}` : ""}`);
+  const response = await fetch(toApiUrl(`/api/audit${query ? `?${query}` : ""}`));
   if (!response.ok) {
     throw new Error(`Failed to list audit records: ${response.status}`);
   }
@@ -74,7 +88,7 @@ export async function listAudit(params: Record<string, string | number | undefin
 }
 
 export async function previewPermission(action: string, subject: Record<string, unknown> = {}): Promise<PermissionDecision> {
-  const response = await fetch(`${API_BASE}/api/permissions/preview`, {
+  const response = await fetch(toApiUrl("/api/permissions/preview"), {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ action, subject }),
@@ -120,7 +134,7 @@ export function streamRunEvents(
 }
 
 export async function resumeRun(threadId: string, request: ResumeRequest): Promise<ResumeResult> {
-  const response = await fetch(`${API_BASE}/api/runs/${threadId}/resume`, {
+  const response = await fetch(toApiUrl(`/api/runs/${threadId}/resume`), {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(request),
@@ -137,7 +151,7 @@ export async function listSkills(projectRoot?: string): Promise<{ skills: SkillM
     params.set("project_root", projectRoot.trim());
   }
   const query = params.toString();
-  const response = await fetch(`${API_BASE}/api/skills${query ? `?${query}` : ""}`);
+  const response = await fetch(toApiUrl(`/api/skills${query ? `?${query}` : ""}`));
   if (!response.ok) {
     throw new Error(`Failed to list skills: ${response.status}`);
   }
@@ -149,7 +163,7 @@ export async function getSkill(skillId: string, includeBody = false, projectRoot
   if (projectRoot?.trim()) {
     params.set("project_root", projectRoot.trim());
   }
-  const response = await fetch(`${API_BASE}/api/skills/${encodeURIComponent(skillId)}?${params.toString()}`);
+  const response = await fetch(toApiUrl(`/api/skills/${encodeURIComponent(skillId)}?${params.toString()}`));
   if (!response.ok) {
     throw new Error(`Failed to get skill: ${response.status}`);
   }
@@ -157,7 +171,7 @@ export async function getSkill(skillId: string, includeBody = false, projectRoot
 }
 
 export async function installSkill(projectRoot: string, zipPath: string): Promise<SkillInstallResponse> {
-  const response = await fetch(`${API_BASE}/api/skills/install`, {
+  const response = await fetch(toApiUrl("/api/skills/install"), {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ project_root: projectRoot, zip_path: zipPath }),
@@ -169,7 +183,7 @@ export async function installSkill(projectRoot: string, zipPath: string): Promis
 }
 
 export async function getRunState(threadId: string): Promise<RunStateProjection> {
-  const response = await fetch(`${API_BASE}/api/runs/${threadId}/state`);
+  const response = await fetch(toApiUrl(`/api/runs/${threadId}/state`));
   if (!response.ok) {
     throw new Error(`Failed to get run state: ${response.status}`);
   }
@@ -177,7 +191,7 @@ export async function getRunState(threadId: string): Promise<RunStateProjection>
 }
 
 export async function replayRun(threadId: string): Promise<RunReplayExport> {
-  const response = await fetch(`${API_BASE}/api/runs/${threadId}/replay`);
+  const response = await fetch(toApiUrl(`/api/runs/${threadId}/replay`));
   if (!response.ok) {
     throw new Error(`Failed to replay run: ${response.status}`);
   }
@@ -185,7 +199,7 @@ export async function replayRun(threadId: string): Promise<RunReplayExport> {
 }
 
 export async function getRunContext(threadId: string): Promise<RunContextTrace> {
-  const response = await fetch(`${API_BASE}/api/runs/${threadId}/context`);
+  const response = await fetch(toApiUrl(`/api/runs/${threadId}/context`));
   if (!response.ok) {
     throw new Error(`Failed to get run context: ${response.status}`);
   }
@@ -193,7 +207,7 @@ export async function getRunContext(threadId: string): Promise<RunContextTrace> 
 }
 
 export async function getRunTrace(threadId: string): Promise<TraceExport> {
-  const response = await fetch(`${API_BASE}/api/runs/${encodeURIComponent(threadId)}/trace`);
+  const response = await fetch(toApiUrl(`/api/runs/${encodeURIComponent(threadId)}/trace`));
   if (!response.ok) {
     throw new Error(`Failed to get run trace: ${response.status}`);
   }
@@ -201,7 +215,7 @@ export async function getRunTrace(threadId: string): Promise<TraceExport> {
 }
 
 export async function createConversation(title?: string): Promise<{ conversation: Conversation }> {
-  const response = await fetch(`${API_BASE}/api/conversations`, {
+  const response = await fetch(toApiUrl("/api/conversations"), {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ title }),
@@ -213,7 +227,7 @@ export async function createConversation(title?: string): Promise<{ conversation
 }
 
 export async function listConversations(includeArchived = false): Promise<{ conversations: Conversation[] }> {
-  const response = await fetch(`${API_BASE}/api/conversations${includeArchived ? "?include_archived=true" : ""}`);
+  const response = await fetch(toApiUrl(`/api/conversations${includeArchived ? "?include_archived=true" : ""}`));
   if (!response.ok) {
     throw new Error(`Failed to list conversations: ${response.status}`);
   }
@@ -221,7 +235,7 @@ export async function listConversations(includeArchived = false): Promise<{ conv
 }
 
 export async function updateConversation(conversationId: string, request: Partial<{ title: string; archived: boolean }>): Promise<{ conversation: Conversation }> {
-  const response = await fetch(`${API_BASE}/api/conversations/${encodeURIComponent(conversationId)}`, {
+  const response = await fetch(toApiUrl(`/api/conversations/${encodeURIComponent(conversationId)}`), {
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(request),
@@ -240,7 +254,7 @@ export async function getConversationTranscript(conversationId: string): Promise
   branch_records?: ConversationBranchRecord[];
   active_head_transitions?: ActiveHeadTransition[];
 }> {
-  const response = await fetch(`${API_BASE}/api/conversations/${encodeURIComponent(conversationId)}/transcript`);
+  const response = await fetch(toApiUrl(`/api/conversations/${encodeURIComponent(conversationId)}/transcript`));
   if (!response.ok) {
     throw new Error(`Failed to get conversation transcript: ${response.status}`);
   }
@@ -255,7 +269,7 @@ export async function getConversationTranscript(conversationId: string): Promise
 }
 
 export async function forkConversation(conversationId: string, sourceMessageId: string): Promise<BranchOperationResponse> {
-  const response = await fetch(`${API_BASE}/api/conversations/${encodeURIComponent(conversationId)}/fork`, {
+  const response = await fetch(toApiUrl(`/api/conversations/${encodeURIComponent(conversationId)}/fork`), {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ source_message_id: sourceMessageId }),
@@ -267,7 +281,7 @@ export async function forkConversation(conversationId: string, sourceMessageId: 
 }
 
 export async function rollbackConversation(conversationId: string, targetMessageId: string): Promise<BranchOperationResponse> {
-  const response = await fetch(`${API_BASE}/api/conversations/${encodeURIComponent(conversationId)}/rollback`, {
+  const response = await fetch(toApiUrl(`/api/conversations/${encodeURIComponent(conversationId)}/rollback`), {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ target_message_id: targetMessageId }),
@@ -279,7 +293,7 @@ export async function rollbackConversation(conversationId: string, targetMessage
 }
 
 export async function getConversationContext(conversationId: string): Promise<{ conversation_id: string; items: RunContextTrace["included"]; trace: Record<string, unknown> }> {
-  const response = await fetch(`${API_BASE}/api/conversations/${encodeURIComponent(conversationId)}/context`);
+  const response = await fetch(toApiUrl(`/api/conversations/${encodeURIComponent(conversationId)}/context`));
   if (!response.ok) {
     throw new Error(`Failed to get conversation context: ${response.status}`);
   }
@@ -287,7 +301,7 @@ export async function getConversationContext(conversationId: string): Promise<{ 
 }
 
 export async function getConversationTrace(conversationId: string): Promise<TraceExport> {
-  const response = await fetch(`${API_BASE}/api/conversations/${encodeURIComponent(conversationId)}/trace`);
+  const response = await fetch(toApiUrl(`/api/conversations/${encodeURIComponent(conversationId)}/trace`));
   if (!response.ok) {
     throw new Error(`Failed to get conversation trace: ${response.status}`);
   }
@@ -295,7 +309,7 @@ export async function getConversationTrace(conversationId: string): Promise<Trac
 }
 
 export async function compactConversation(conversationId: string, request: CompactConversationRequest = {}): Promise<CompactConversationResponse> {
-  const response = await fetch(`${API_BASE}/api/conversations/${encodeURIComponent(conversationId)}/compact`, {
+  const response = await fetch(toApiUrl(`/api/conversations/${encodeURIComponent(conversationId)}/compact`), {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(request),
@@ -308,7 +322,7 @@ export async function compactConversation(conversationId: string, request: Compa
 
 export async function getProjectIndexStatus(root?: string): Promise<ProjectIndexStatus> {
   const params = root ? `?root=${encodeURIComponent(root)}` : "";
-  const response = await fetch(`${API_BASE}/api/project/index/status${params}`);
+  const response = await fetch(toApiUrl(`/api/project/index/status${params}`));
   if (!response.ok) {
     throw new Error(`Failed to get project index status: ${response.status}`);
   }
@@ -316,7 +330,7 @@ export async function getProjectIndexStatus(root?: string): Promise<ProjectIndex
 }
 
 export async function refreshProjectIndex(root?: string): Promise<ProjectIndexStatus> {
-  const response = await fetch(`${API_BASE}/api/project/index/refresh`, {
+  const response = await fetch(toApiUrl("/api/project/index/refresh"), {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ root }),
@@ -328,7 +342,7 @@ export async function refreshProjectIndex(root?: string): Promise<ProjectIndexSt
 }
 
 export async function searchProject(query: string, root?: string): Promise<ProjectSearchResponse> {
-  const response = await fetch(`${API_BASE}/api/project/search`, {
+  const response = await fetch(toApiUrl("/api/project/search"), {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ query, root, limit: 8 }),
@@ -341,7 +355,7 @@ export async function searchProject(query: string, root?: string): Promise<Proje
 
 export async function getProjectTrace(root?: string): Promise<TraceExport> {
   const params = root ? `?root=${encodeURIComponent(root)}` : "";
-  const response = await fetch(`${API_BASE}/api/project/trace${params}`);
+  const response = await fetch(toApiUrl(`/api/project/trace${params}`));
   if (!response.ok) {
     throw new Error(`Failed to get project trace: ${response.status}`);
   }
@@ -379,7 +393,7 @@ export async function listMemory(options: string | MemoryListOptions = ""): Prom
     params.set("include_non_injectable", "true");
   }
   const query = params.toString();
-  const response = await fetch(`${API_BASE}/api/memory${query ? `?${query}` : ""}`);
+  const response = await fetch(toApiUrl(`/api/memory${query ? `?${query}` : ""}`));
   if (!response.ok) {
     throw new Error(`Failed to list memory: ${response.status}`);
   }
@@ -387,7 +401,7 @@ export async function listMemory(options: string | MemoryListOptions = ""): Prom
 }
 
 export async function searchMemory(query: string): Promise<MemorySearchResponse> {
-  const response = await fetch(`${API_BASE}/api/memory/search`, {
+  const response = await fetch(toApiUrl("/api/memory/search"), {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ query, top_k: 8 }),
@@ -406,7 +420,7 @@ export async function getMemoryTrace(params: Record<string, string | undefined> 
     }
   });
   const query = search.toString();
-  const response = await fetch(`${API_BASE}/api/memory/trace${query ? `?${query}` : ""}`);
+  const response = await fetch(toApiUrl(`/api/memory/trace${query ? `?${query}` : ""}`));
   if (!response.ok) {
     throw new Error(`Failed to get memory trace: ${response.status}`);
   }
@@ -414,7 +428,7 @@ export async function getMemoryTrace(params: Record<string, string | undefined> 
 }
 
 export async function inspectReplacement(replacementId: string): Promise<ReplacementInspection> {
-  const response = await fetch(`${API_BASE}/api/replacements/${encodeURIComponent(replacementId)}/inspect`);
+  const response = await fetch(toApiUrl(`/api/replacements/${encodeURIComponent(replacementId)}/inspect`));
   if (!response.ok) {
     throw new Error(await errorMessage(response, "Failed to inspect replacement"));
   }
@@ -422,7 +436,7 @@ export async function inspectReplacement(replacementId: string): Promise<Replace
 }
 
 export async function getMemory(memoryId: string): Promise<{ memory: MemoryRecord }> {
-  const response = await fetch(`${API_BASE}/api/memory/${encodeURIComponent(memoryId)}`);
+  const response = await fetch(toApiUrl(`/api/memory/${encodeURIComponent(memoryId)}`));
   if (!response.ok) {
     throw new Error(`Failed to get memory: ${response.status}`);
   }
@@ -430,7 +444,7 @@ export async function getMemory(memoryId: string): Promise<{ memory: MemoryRecor
 }
 
 export async function createMemory(request: { text: string; scope: MemoryScope; type: MemoryType; tags?: string[]; confidence?: number; source?: Record<string, unknown> }): Promise<{ memory: MemoryRecord }> {
-  const response = await fetch(`${API_BASE}/api/memory`, {
+  const response = await fetch(toApiUrl("/api/memory"), {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(request),
@@ -442,7 +456,7 @@ export async function createMemory(request: { text: string; scope: MemoryScope; 
 }
 
 export async function updateMemory(memoryId: string, request: Partial<{ text: string; scope: MemoryScope; type: MemoryType; status: MemoryStatus; tags: string[]; confidence: number; source: Record<string, unknown> }>): Promise<{ memory: MemoryRecord }> {
-  const response = await fetch(`${API_BASE}/api/memory/${encodeURIComponent(memoryId)}`, {
+  const response = await fetch(toApiUrl(`/api/memory/${encodeURIComponent(memoryId)}`), {
     method: "PUT",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(request),
@@ -454,7 +468,7 @@ export async function updateMemory(memoryId: string, request: Partial<{ text: st
 }
 
 export async function memoryAction(memoryId: string, action: MemoryAction, extra: Record<string, unknown> = {}): Promise<Record<string, unknown>> {
-  const response = await fetch(`${API_BASE}/api/memory/${encodeURIComponent(memoryId)}/actions`, {
+  const response = await fetch(toApiUrl(`/api/memory/${encodeURIComponent(memoryId)}/actions`), {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ action, ...extra }),
@@ -466,7 +480,7 @@ export async function memoryAction(memoryId: string, action: MemoryAction, extra
 }
 
 export async function deleteMemory(memoryId: string): Promise<{ deleted: boolean; memory_id: string }> {
-  const response = await fetch(`${API_BASE}/api/memory/${encodeURIComponent(memoryId)}`, { method: "DELETE" });
+  const response = await fetch(toApiUrl(`/api/memory/${encodeURIComponent(memoryId)}`), { method: "DELETE" });
   if (!response.ok) {
     throw new Error(`Failed to delete memory: ${response.status}`);
   }
@@ -474,7 +488,7 @@ export async function deleteMemory(memoryId: string): Promise<{ deleted: boolean
 }
 
 export async function extractMemory(prompt: string, threadId?: string | null): Promise<{ status: string; candidates: MemoryCandidate[] }> {
-  const response = await fetch(`${API_BASE}/api/memory/extract`, {
+  const response = await fetch(toApiUrl("/api/memory/extract"), {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ prompt, thread_id: threadId, dry_run: true }),
@@ -486,7 +500,7 @@ export async function extractMemory(prompt: string, threadId?: string | null): P
 }
 
 export async function decideMemoryCandidate(candidateId: string, decision: string, text?: string): Promise<Record<string, unknown>> {
-  const response = await fetch(`${API_BASE}/api/memory/candidates/${encodeURIComponent(candidateId)}/decisions`, {
+  const response = await fetch(toApiUrl(`/api/memory/candidates/${encodeURIComponent(candidateId)}/decisions`), {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ decision, text }),
@@ -498,19 +512,11 @@ export async function decideMemoryCandidate(candidateId: string, decision: strin
 }
 
 export async function cancelRun(threadId: string): Promise<{ status: string; event?: KiraEvent }> {
-  const response = await fetch(`${API_BASE}/api/runs/${threadId}/cancel`, { method: "POST" });
+  const response = await fetch(toApiUrl(`/api/runs/${threadId}/cancel`), { method: "POST" });
   if (!response.ok) {
     throw new Error(`Failed to cancel run: ${response.status}`);
   }
   return response.json() as Promise<{ status: string; event?: KiraEvent }>;
-}
-
-function toApiUrl(pathOrUrl: string): string {
-  if (pathOrUrl.startsWith("http://") || pathOrUrl.startsWith("https://")) {
-    return pathOrUrl;
-  }
-
-  return `${API_BASE}${pathOrUrl}`;
 }
 
 async function errorMessage(response: Response, fallback: string): Promise<string> {

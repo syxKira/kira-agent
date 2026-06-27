@@ -1,0 +1,357 @@
+#!/usr/bin/env python3
+from __future__ import annotations
+
+import argparse
+import json
+import os
+import shutil
+import signal
+import socket
+import subprocess
+import sys
+import time
+import urllib.error
+import urllib.request
+from pathlib import Path
+from typing import Sequence
+
+REPO_ROOT = Path(__file__).resolve().parents[1]
+SERVER_DIR = REPO_ROOT / "server"
+WEB_DIR = REPO_ROOT / "web"
+DEFAULT_WEB_DIST = WEB_DIR / "dist"
+
+
+def main(argv: Sequence[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(description="Start Kira from one repo-local command.")
+    subparsers = parser.add_subparsers(dest="command", required=True)
+
+    dev = subparsers.add_parser("dev", help="Start FastAPI and Vite together for local development.")
+    dev.add_argument("--host", default="127.0.0.1", help="Backend bind host.")
+    dev.add_argument("--api-port", type=int, default=8000, help="Backend API port.")
+    dev.add_argument("--web-host", default="127.0.0.1", help="Vite bind host.")
+    dev.add_argument("--web-port", type=int, default=5173, help="Vite frontend port.")
+    dev.add_argument("--backend-origin", help="Backend origin for the Vite /api proxy.")
+    dev.set_defaults(func=run_dev)
+
+    serve = subparsers.add_parser("serve", help="Start one FastAPI service for frontend and API.")
+    serve.add_argument("--host", default="127.0.0.1", help="FastAPI bind host.")
+    serve.add_argument("--port", type=int, default=8000, help="FastAPI port.")
+    serve.add_argument("--web-dist", default=str(DEFAULT_WEB_DIST), help="Built frontend dist directory.")
+    build_group = serve.add_mutually_exclusive_group()
+    build_group.add_argument("--build", action="store_true", help="Always run pnpm build before serving.")
+    build_group.add_argument("--no-build", action="store_true", help="Require an existing frontend build.")
+    serve.set_defaults(func=run_serve)
+
+    smoke_dev = subparsers.add_parser("smoke-dev", help="Smoke test the one-command development startup.")
+    smoke_dev.set_defaults(func=run_smoke_dev)
+
+    smoke_serve = subparsers.add_parser("smoke-serve", help="Smoke test the one-command single-service startup.")
+    smoke_serve.add_argument("--web-dist", default=str(DEFAULT_WEB_DIST), help="Built frontend dist directory.")
+    smoke_serve.add_argument("--build", action="store_true", help="Force a frontend build before smoke serving.")
+    smoke_serve.set_defaults(func=run_smoke_serve)
+
+    args = parser.parse_args(argv)
+    try:
+        return args.func(args)
+    except KeyboardInterrupt:
+        return 130
+    except StartupError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 1
+
+
+def run_dev(args: argparse.Namespace) -> int:
+    require_command("uv")
+    require_command("pnpm")
+    assert_port_available(args.host, args.api_port, "backend API")
+    assert_port_available(args.web_host, args.web_port, "Vite frontend")
+
+    backend_origin = args.backend_origin or origin_for_local_client(args.host, args.api_port)
+    web_url = origin_for_local_client(args.web_host, args.web_port)
+    env = os.environ.copy()
+    env["VITE_KIRA_DEV_API_TARGET"] = backend_origin
+
+    processes: list[subprocess.Popen] = []
+    try:
+        processes.append(start_process([
+            "uv",
+            "run",
+            "uvicorn",
+            "kira_server.main:app",
+            "--reload",
+            "--host",
+            args.host,
+            "--port",
+            str(args.api_port),
+        ], cwd=SERVER_DIR, env=env))
+        processes.append(start_process([
+            "pnpm",
+            "dev",
+            "--host",
+            args.web_host,
+            "--port",
+            str(args.web_port),
+        ], cwd=WEB_DIR, env=env))
+
+        print(f"Kira dev started: {web_url}")
+        print(f"Backend API: {backend_origin}")
+        print("Press Ctrl-C to stop both services.")
+        return wait_for_processes(processes)
+    except KeyboardInterrupt:
+        return 130
+    finally:
+        terminate_processes(processes)
+
+
+def run_serve(args: argparse.Namespace) -> int:
+    require_command("uv")
+    web_dist = Path(args.web_dist).expanduser()
+    index_html = web_dist / "index.html"
+    if args.build or not index_html.is_file():
+        if args.no_build:
+            raise StartupError(
+                f"frontend build output missing at {web_dist}; run `scripts/kira serve --build` or `cd web && pnpm build`"
+            )
+        require_command("pnpm")
+        run_checked(["pnpm", "build"], cwd=WEB_DIR)
+
+    if not index_html.is_file():
+        raise StartupError(f"frontend build output missing at {web_dist}; expected index.html")
+    assert_port_available(args.host, args.port, "single-service FastAPI")
+
+    if args.host == "0.0.0.0":
+        print("Warning: binding to 0.0.0.0 does not add authentication, TLS, or public hardening.")
+
+    env = os.environ.copy()
+    env["KIRA_WEB_DIST"] = str(web_dist.resolve())
+    url = origin_for_local_client(args.host, args.port)
+    process: subprocess.Popen | None = None
+    try:
+        process = start_process([
+            "uv",
+            "run",
+            "uvicorn",
+            "kira_server.main:app",
+            "--host",
+            args.host,
+            "--port",
+            str(args.port),
+        ], cwd=SERVER_DIR, env=env)
+        print(f"Kira serve started: {url}")
+        print("Press Ctrl-C to stop the service.")
+        return wait_for_processes([process])
+    except KeyboardInterrupt:
+        return 130
+    finally:
+        if process is not None:
+            terminate_processes([process])
+
+
+def run_smoke_dev(_args: argparse.Namespace) -> int:
+    api_port = get_free_port()
+    web_port = get_free_port()
+    process = start_process([
+        sys.executable,
+        str(REPO_ROOT / "scripts" / "kira"),
+        "dev",
+        "--host",
+        "127.0.0.1",
+        "--api-port",
+        str(api_port),
+        "--web-host",
+        "127.0.0.1",
+        "--web-port",
+        str(web_port),
+    ], cwd=REPO_ROOT, env=os.environ.copy(), quiet=True)
+    try:
+        api_url = f"http://127.0.0.1:{api_port}/api/health"
+        web_proxy_url = f"http://127.0.0.1:{web_port}/api/health"
+        wait_for_http(api_url, "backend health")
+        wait_for_http(web_proxy_url, "Vite proxied health")
+        print(json.dumps({"status": "ok", "mode": "dev", "api": api_url, "web_proxy": web_proxy_url}, indent=2))
+        return 0
+    finally:
+        stop_process(process)
+        wait_for_port_free("127.0.0.1", api_port, "backend API")
+        wait_for_port_free("127.0.0.1", web_port, "Vite frontend")
+
+
+def run_smoke_serve(args: argparse.Namespace) -> int:
+    port = get_free_port()
+    command = [
+        sys.executable,
+        str(REPO_ROOT / "scripts" / "kira"),
+        "serve",
+        "--host",
+        "127.0.0.1",
+        "--port",
+        str(port),
+        "--web-dist",
+        args.web_dist,
+    ]
+    if args.build:
+        command.append("--build")
+    elif (Path(args.web_dist).expanduser() / "index.html").is_file():
+        command.append("--no-build")
+
+    process = start_process(command, cwd=REPO_ROOT, env=os.environ.copy(), quiet=True)
+    try:
+        base_url = f"http://127.0.0.1:{port}"
+        wait_for_http(f"{base_url}/", "frontend shell")
+        wait_for_http(f"{base_url}/api/health", "backend health")
+        run = post_json(f"{base_url}/api/runs", {"prompt": "one-command smoke", "fixture": "welcome"})
+        events = read_sse(f"{base_url}{run['events_url']}")
+        if not any(event.get("type") == "done" for event in events):
+            raise StartupError("single-service smoke did not receive a done event")
+        print(json.dumps({"status": "ok", "mode": "serve", "url": base_url, "events": len(events)}, indent=2))
+        return 0
+    finally:
+        stop_process(process)
+        wait_for_port_free("127.0.0.1", port, "single-service FastAPI")
+
+
+def require_command(command: str) -> None:
+    if shutil.which(command) is None:
+        raise StartupError(f"missing prerequisite `{command}` on PATH")
+
+
+def run_checked(command: Sequence[str], cwd: Path) -> None:
+    print(f"Running: {' '.join(command)}")
+    completed = subprocess.run(command, cwd=cwd)
+    if completed.returncode != 0:
+        raise StartupError(f"`{' '.join(command)}` failed with exit code {completed.returncode}")
+
+
+def start_process(command: Sequence[str], cwd: Path, env: dict[str, str], quiet: bool = False) -> subprocess.Popen:
+    stdout = subprocess.DEVNULL if quiet else None
+    stderr = subprocess.DEVNULL if quiet else None
+    kwargs: dict = {"cwd": cwd, "env": env, "stdout": stdout, "stderr": stderr}
+    if os.name == "posix":
+        kwargs["preexec_fn"] = os.setsid
+    return subprocess.Popen(command, **kwargs)
+
+
+def wait_for_processes(processes: Sequence[subprocess.Popen]) -> int:
+    while True:
+        for process in processes:
+            code = process.poll()
+            if code is not None:
+                return code
+        time.sleep(0.2)
+
+
+def terminate_processes(processes: Sequence[subprocess.Popen]) -> None:
+    for process in processes:
+        stop_process(process)
+
+
+def stop_process(process: subprocess.Popen) -> None:
+    if process.poll() is not None:
+        return
+    try:
+        if os.name == "posix":
+            os.killpg(process.pid, signal.SIGINT)
+        else:
+            process.terminate()
+    except ProcessLookupError:
+        return
+    try:
+        process.wait(timeout=8)
+    except subprocess.TimeoutExpired:
+        if os.name == "posix":
+            os.killpg(process.pid, signal.SIGTERM)
+        else:
+            process.kill()
+        try:
+            process.wait(timeout=5)
+        except subprocess.TimeoutExpired:
+            if os.name == "posix":
+                os.killpg(process.pid, signal.SIGKILL)
+            else:
+                process.kill()
+            process.wait(timeout=5)
+
+
+def assert_port_available(host: str, port: int, label: str) -> None:
+    bind_host = "127.0.0.1" if host in {"0.0.0.0", "::"} else host
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+        sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        try:
+            sock.bind((bind_host, port))
+        except OSError as exc:
+            raise StartupError(f"{label} port {port} is unavailable on {host}: {exc}") from exc
+
+
+def wait_for_port_free(host: str, port: int, label: str) -> None:
+    deadline = time.monotonic() + 10
+    while time.monotonic() < deadline:
+        try:
+            assert_port_available(host, port, label)
+            return
+        except StartupError:
+            time.sleep(0.2)
+    raise StartupError(f"{label} port {port} was not released after shutdown")
+
+
+def get_free_port() -> int:
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+        sock.bind(("127.0.0.1", 0))
+        return int(sock.getsockname()[1])
+
+
+def origin_for_local_client(host: str, port: int) -> str:
+    client_host = "127.0.0.1" if host in {"0.0.0.0", "::"} else host
+    return f"http://{client_host}:{port}"
+
+
+def wait_for_http(url: str, label: str) -> None:
+    deadline = time.monotonic() + 45
+    last_error: Exception | None = None
+    while time.monotonic() < deadline:
+        try:
+            with urllib.request.urlopen(url, timeout=2) as response:
+                if 200 <= response.status < 300:
+                    return
+        except Exception as exc:  # noqa: BLE001 - surface the last startup failure.
+            last_error = exc
+        time.sleep(0.3)
+    raise StartupError(f"timed out waiting for {label} at {url}: {last_error}")
+
+
+def post_json(url: str, payload: dict) -> dict:
+    request = urllib.request.Request(
+        url,
+        data=json.dumps(payload).encode("utf-8"),
+        headers={"Content-Type": "application/json"},
+        method="POST",
+    )
+    try:
+        with urllib.request.urlopen(request, timeout=10) as response:
+            return json.loads(response.read().decode("utf-8"))
+    except urllib.error.HTTPError as exc:
+        raise StartupError(f"POST {url} failed with HTTP {exc.code}: {exc.read().decode('utf-8', 'replace')}") from exc
+
+
+def read_sse(url: str) -> list[dict]:
+    events: list[dict] = []
+    deadline = time.monotonic() + 30
+    with urllib.request.urlopen(url, timeout=30) as response:
+        for raw_line in response:
+            if time.monotonic() > deadline:
+                raise StartupError(f"timed out reading events from {url}")
+            line = raw_line.decode("utf-8").strip()
+            if not line.startswith("data: "):
+                continue
+            event = json.loads(line.removeprefix("data: "))
+            events.append(event)
+            if event.get("type") in {"done", "error"}:
+                return events
+    return events
+
+
+class StartupError(RuntimeError):
+    pass
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

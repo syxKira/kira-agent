@@ -4,17 +4,37 @@ Vite React frontend for local Kira Agent development.
 
 ## Local Run
 
+Recommended from the repository root:
+
+```bash
+scripts/kira dev
+```
+
+This starts FastAPI and Vite together, then prints the frontend URL. The Vite dev server proxies same-origin `/api` browser requests to the backend.
+
+For focused frontend development:
+
 ```bash
 cd web
 pnpm install
 pnpm dev
 ```
 
-The app expects the server at `http://127.0.0.1:8000` by default. Override it with:
+By default, frontend code calls same-origin `/api` paths. Configure the Vite proxy target when the backend is not on `http://127.0.0.1:8000`:
 
 ```bash
-VITE_KIRA_API_BASE=http://127.0.0.1:8000 pnpm dev
+VITE_KIRA_DEV_API_TARGET=http://127.0.0.1:9000 pnpm dev
 ```
+
+Use `VITE_KIRA_API_BASE` only for explicit split-host deployments where browser requests should go to a different API origin instead of the serving origin.
+
+For a complete single-service run from the repository root:
+
+```bash
+scripts/kira serve --build
+```
+
+FastAPI serves the built Vite app and `/api/*` from the same origin, usually `http://127.0.0.1:8000/`.
 
 ## Local Demo Flow
 
@@ -55,6 +75,8 @@ Memory controls can list and filter local records by query, scope, type, status,
 ## Smoke
 
 ```bash
+scripts/kira smoke-dev
+scripts/kira smoke-serve
 cd web
 pnpm test
 pnpm build

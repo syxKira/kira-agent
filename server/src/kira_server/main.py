@@ -1,7 +1,11 @@
+import os
 from contextlib import asynccontextmanager
+from pathlib import Path
 
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
 
 from kira_server.api.routes import router
 from kira_server.core.runs import InMemoryRunStore
@@ -25,6 +29,7 @@ def create_app(
     openai_provider: OpenAICompatibleProvider | None = None,
     skill_registry: SkillRegistry | None = None,
     runtime_storage: RuntimeStorage | None = None,
+    frontend_dist: str | Path | None = None,
 ) -> FastAPI:
     @asynccontextmanager
     async def lifespan(app: FastAPI):
@@ -54,7 +59,55 @@ def create_app(
     )
 
     app.include_router(router, prefix="/api")
+    configure_frontend_serving(app, frontend_dist)
     return app
+
+
+def resolve_frontend_dist(frontend_dist: str | Path | None = None) -> Path | None:
+    if frontend_dist is not None:
+        candidate = Path(frontend_dist).expanduser()
+        return candidate.resolve() if (candidate / "index.html").is_file() else None
+
+    configured = os.getenv("KIRA_WEB_DIST")
+    if configured:
+        candidate = Path(configured).expanduser()
+        return candidate.resolve() if (candidate / "index.html").is_file() else None
+
+    repo_dist = Path(__file__).resolve().parents[3] / "web" / "dist"
+    return repo_dist.resolve() if (repo_dist / "index.html").is_file() else None
+
+
+def configure_frontend_serving(app: FastAPI, frontend_dist: str | Path | None = None) -> None:
+    dist = resolve_frontend_dist(frontend_dist)
+    app.state.frontend_dist = str(dist) if dist else None
+    if dist is None:
+        return
+
+    index_html = dist / "index.html"
+    assets_dir = dist / "assets"
+    if assets_dir.is_dir():
+        app.mount("/assets", StaticFiles(directory=assets_dir), name="frontend-assets")
+
+    @app.get("/", include_in_schema=False)
+    async def frontend_index() -> FileResponse:
+        return FileResponse(index_html)
+
+    @app.get("/{full_path:path}", include_in_schema=False)
+    async def frontend_fallback(full_path: str) -> FileResponse:
+        if full_path == "api" or full_path.startswith("api/"):
+            raise HTTPException(status_code=404, detail="Not Found")
+
+        requested = (dist / full_path).resolve()
+        try:
+            requested.relative_to(dist)
+        except ValueError:
+            raise HTTPException(status_code=404, detail="Not Found") from None
+
+        if requested.is_file():
+            return FileResponse(requested)
+        if Path(full_path).suffix:
+            raise HTTPException(status_code=404, detail="Not Found")
+        return FileResponse(index_html)
 
 
 app = create_app()
