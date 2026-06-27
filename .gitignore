@@ -10,9 +10,12 @@ dist/
 .vite/
 *.tsbuildinfo
 web/node_modules/
-web/dist/
 web/vite.config.d.ts
 web/vite.config.js
+
+# Keep the built frontend in git so Python-only deploy images can serve Kira.
+!web/dist/
+!web/dist/**
 
 # Local env
 .env
