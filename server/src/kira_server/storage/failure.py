@@ -1,9 +1,9 @@
 from __future__ import annotations
 
-from enum import StrEnum
+from enum import Enum
 
 
-class FailureClass(StrEnum):
+class FailureClass(str, Enum):
     VALIDATION = "validation_error"
     PERMISSION = "permission_error"
     TIMEOUT = "timeout_error"
