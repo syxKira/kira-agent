@@ -20,10 +20,11 @@ def test_builtin_test_skill_is_discoverable_and_redacted() -> None:
     body = registry.metadata()
 
     assert registry.skill_ids == [TEST_SKILL_ID, HITL_FIXTURE_SKILL_ID]
-    assert body["skills"][0]["skill_id"] == TEST_SKILL_ID
-    assert body["skills"][0]["workflows"][0]["name"] == "generic-stage-03-workflow"
-    assert body["skills"][0]["allowed_tools"] == ["list_project_files"]
-    assert body["skills"][1]["skill_id"] == HITL_FIXTURE_SKILL_ID
+    skills = {skill["skill_id"]: skill for skill in body["skills"]}
+    assert "ad-attribution" in skills
+    assert skills[TEST_SKILL_ID]["workflows"][0]["name"] == "generic-stage-03-workflow"
+    assert skills[TEST_SKILL_ID]["allowed_tools"] == ["list_project_files"]
+    assert skills[HITL_FIXTURE_SKILL_ID]["skill_id"] == HITL_FIXTURE_SKILL_ID
     assert "api_key" not in json.dumps(body)
     assert "sk-secret" not in json.dumps(body)
 
@@ -63,9 +64,13 @@ def test_default_skills_endpoint_hides_internal_builtin_fixture_skills() -> None
     internal_response = client.get("/api/skills", params={"include_internal": "true"})
 
     assert default_response.status_code == 200
-    assert default_response.json() == {"skills": []}
+    assert {skill["skill_id"] for skill in default_response.json()["skills"]} == {"ad-attribution"}
     assert internal_response.status_code == 200
-    assert {skill["skill_id"] for skill in internal_response.json()["skills"]} == {TEST_SKILL_ID, HITL_FIXTURE_SKILL_ID}
+    assert {skill["skill_id"] for skill in internal_response.json()["skills"]} == {
+        "ad-attribution",
+        TEST_SKILL_ID,
+        HITL_FIXTURE_SKILL_ID,
+    }
 
 
 def test_app_starts_with_new_runtime_packages_without_workflow_skills() -> None:
@@ -133,7 +138,7 @@ def test_project_skill_zip_install_filters_metadata_and_discovers_skill(tmp_path
     assert (project / ".kira" / "skills" / "ad-skill" / "SKILL.md").is_file()
     assert not (project / ".kira" / "skills" / "__MACOSX").exists()
     skills = client.get("/api/skills", params={"project_root": str(project)}).json()["skills"]
-    assert {skill["skill_id"] for skill in skills} == {"ad-skill"}
+    assert {"ad-attribution", "ad-skill"}.issubset({skill["skill_id"] for skill in skills})
 
 
 def test_project_skill_zip_install_rejects_unsafe_path(tmp_path: Path) -> None:
@@ -247,6 +252,45 @@ def test_skill_context_selects_relevant_sections_for_prompt(tmp_path: Path) -> N
     assert "send_behavior.py" not in text
 
 
+def test_skill_context_selects_relevant_references_for_prompt(tmp_path: Path) -> None:
+    skill_dir = tmp_path / ".kira" / "skills" / "ad-attribution"
+    skill_dir.mkdir(parents=True)
+    skill_dir.joinpath("SKILL.md").write_text(
+        "---\n"
+        "name: ad-attribution\n"
+        "description: 构造广告归因测试数据并校验结果\n"
+        "---\n"
+        "# Body\n按需读取参考资料。\n",
+        encoding="utf-8",
+    )
+    skill_dir.joinpath("skill.yaml").write_text(
+        "references:\n"
+        "  - references/test-data.md\n"
+        "  - references/validation.md\n",
+        encoding="utf-8",
+    )
+    references = skill_dir / "references"
+    references.mkdir()
+    references.joinpath("test-data.md").write_text(
+        "# Test Data\n构造 adtracker 广告数据和 #app_start 行为数据。\n",
+        encoding="utf-8",
+    )
+    references.joinpath("validation.md").write_text(
+        "# Validation\n查询归因结果表，判断 match_type 和离线 device 表。\n",
+        encoding="utf-8",
+    )
+    package = parse_skill_package(skill_dir, PackageSource(key="project", priority=20, path=str(tmp_path / ".kira" / "skills")), include_body=True)
+
+    items = skill_context_items(package, query="帮我查询归因结果表并判断 match_type")
+    text = "\n".join(item.text for item in items)
+    references_loaded = [item for item in items if item.kind == "skill_reference"]
+
+    assert len(references_loaded) == 1
+    assert references_loaded[0].metadata["reference"] == "references/validation.md"
+    assert "查询归因结果表" in text
+    assert "构造 adtracker 广告数据" not in text
+
+
 def test_prompt_auto_routes_to_model_invocable_skill(tmp_path: Path) -> None:
     skills_root = tmp_path / ".kira" / "skills"
     skills_root.mkdir(parents=True)
@@ -269,4 +313,5 @@ def test_prompt_auto_routes_to_model_invocable_skill(tmp_path: Path) -> None:
 
     assert routed is not None
     assert routed.skill_id == "ad-data"
-    assert disabled is None
+    assert disabled is not None
+    assert disabled.skill_id == "ad-attribution"

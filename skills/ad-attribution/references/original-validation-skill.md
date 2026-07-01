@@ -111,7 +111,7 @@ LIMIT 20
 常用调用方式：
 
 ```bash
-python ".cursor/skills/ad-attribution-validation/scripts/query_offline_device_validation.py" \
+python ".kira/skills/ad-attribution/scripts/query_offline_device_validation.py" \
   --scene-type device_activation_attribution \
   --device-id ad_gaid_s_48 \
   --dt 2023-12-29
@@ -182,7 +182,7 @@ python ".cursor/skills/ad-attribution-validation/scripts/query_offline_device_va
 常用调用方式：
 
 ```bash
-python ".cursor/skills/ad-attribution-validation/scripts/start_validation_workflow.py" \
+python ".kira/skills/ad-attribution/scripts/start_validation_workflow.py" \
   --scene-type device_activation \
   --query-target attribution \
   --event-timestamp-ms 1778688000000 \

@@ -1,7 +1,14 @@
 from __future__ import annotations
 
+import base64
+import hashlib
+import hmac
+import json
 import os
 import re
+import time
+import urllib.error
+import urllib.request
 from pathlib import Path
 from typing import Any
 
@@ -12,6 +19,21 @@ MINIMAX_GLOBAL_BASE_URL = "https://api.minimax.io/v1"
 MINIMAX_GLOBAL_PRESET = "Minimax Global"
 DEFAULT_CONFIG_PATH = Path.home() / ".kira-agent" / "config.yaml"
 CONFIG_PATH_ENV = "KIRA_CONFIG_PATH"
+ENV_PROVIDER_NAME = "KIRA_PROVIDER_NAME"
+ENV_PROVIDER_TYPE = "KIRA_PROVIDER_TYPE"
+ENV_PROVIDER_PRESET = "KIRA_PROVIDER_PRESET"
+ENV_PROVIDER_API_KEY = "KIRA_PROVIDER_API_KEY"
+ENV_PROVIDER_BASE_URL = "KIRA_PROVIDER_BASE_URL"
+ENV_PROVIDER_BASEURL = "KIRA_PROVIDER_BASEURL"
+ENV_PROVIDER_MODEL = "KIRA_PROVIDER_MODEL"
+ENV_PROVIDER_TIMEOUT = "KIRA_PROVIDER_TIMEOUT"
+ENV_PROVIDER_RETRY_ATTEMPTS = "KIRA_PROVIDER_RETRY_ATTEMPTS"
+ENV_PROVIDER_RETRY_BACKOFF_SECONDS = "KIRA_PROVIDER_RETRY_BACKOFF_SECONDS"
+APOLLO_URL_ENV = "APOLLO_URL"
+APOLLO_APPID_ENV = "APOLLO_APPID"
+APOLLO_CLUSTER_ENV = "APOLLO_CLUSTER"
+APOLLO_NS_ENV = "APOLLO_NS"
+APOLLO_SECRET_ENV = "APOLLO_SECRET"
 REDACTED = "[redacted]"
 
 
@@ -106,6 +128,12 @@ def config_path_from_env() -> Path:
 def load_provider_config(path: Path | None = None) -> ProviderConfigStore:
     config_path = path or config_path_from_env()
     if not config_path.exists():
+        env_store = _load_provider_config_from_env(config_path)
+        if env_store is not None:
+            return env_store
+        apollo_store = _load_provider_config_from_apollo(config_path)
+        if apollo_store is not None:
+            return apollo_store
         return ProviderConfigStore(config_path=str(config_path), loaded=False)
 
     try:
@@ -123,6 +151,102 @@ def load_provider_config(path: Path | None = None) -> ProviderConfigStore:
             loaded=False,
             error=f"{type(exc).__name__}: {redact_text(str(exc))}",
         )
+
+
+def _load_provider_config_from_env(config_path: Path) -> ProviderConfigStore | None:
+    return _provider_store_from_mapping(config_path, os.environ, source="env")
+
+
+def _load_provider_config_from_apollo(config_path: Path) -> ProviderConfigStore | None:
+    apollo_url = _env_value(APOLLO_URL_ENV)
+    app_id = _env_value(APOLLO_APPID_ENV)
+    cluster = _env_value(APOLLO_CLUSTER_ENV)
+    namespace = _env_value(APOLLO_NS_ENV)
+    secret = _env_value(APOLLO_SECRET_ENV)
+    if not all((apollo_url, app_id, cluster, namespace)):
+        return None
+
+    path = f"/configfiles/json/{app_id}/{cluster}/{namespace}"
+    url = f"{apollo_url.rstrip('/')}{path}"
+    request = urllib.request.Request(url)
+    if secret:
+        timestamp = str(int(time.time() * 1000))
+        signature_raw = hmac.new(secret.encode("utf-8"), f"{timestamp}\n{path}".encode("utf-8"), hashlib.sha1).digest()
+        signature = base64.b64encode(signature_raw).decode("ascii")
+        request.add_header("Timestamp", timestamp)
+        request.add_header("Authorization", f"Apollo {app_id}:{signature}")
+
+    try:
+        with urllib.request.urlopen(request, timeout=5) as response:
+            payload = json.loads(response.read().decode("utf-8"))
+    except urllib.error.HTTPError as exc:
+        return ProviderConfigStore(
+            config_path=str(config_path),
+            loaded=False,
+            error=f"ApolloConfigError: HTTP {exc.code}",
+        )
+    except Exception as exc:
+        return ProviderConfigStore(
+            config_path=str(config_path),
+            loaded=False,
+            error=f"ApolloConfigError: {redact_text(str(exc))}",
+        )
+    if not isinstance(payload, dict):
+        return ProviderConfigStore(
+            config_path=str(config_path),
+            loaded=False,
+            error="ApolloConfigError: Apollo config response must be a mapping",
+        )
+    return _provider_store_from_mapping(config_path, {str(key): str(value) for key, value in payload.items()}, source="apollo")
+
+
+def _provider_store_from_mapping(config_path: Path, values: dict[str, Any], *, source: str) -> ProviderConfigStore | None:
+    api_key = _mapping_value(values, ENV_PROVIDER_API_KEY)
+    base_url = _mapping_value(values, ENV_PROVIDER_BASE_URL) or _mapping_value(values, ENV_PROVIDER_BASEURL)
+    model = _mapping_value(values, ENV_PROVIDER_MODEL)
+    preset = _mapping_value(values, ENV_PROVIDER_PRESET)
+    provider_type = _mapping_value(values, ENV_PROVIDER_TYPE) or "openai"
+    name = _mapping_value(values, ENV_PROVIDER_NAME) or "default"
+    timeout = _mapping_value(values, ENV_PROVIDER_TIMEOUT)
+    retry_attempts = _mapping_value(values, ENV_PROVIDER_RETRY_ATTEMPTS)
+    retry_backoff = _mapping_value(values, ENV_PROVIDER_RETRY_BACKOFF_SECONDS)
+
+    if not any((api_key, base_url, model, preset, timeout, retry_attempts, retry_backoff)):
+        return None
+
+    raw: dict[str, Any] = {
+        "name": name,
+        "provider": provider_type,
+        "api_key": api_key,
+        "base_url": base_url,
+        "model": model,
+        "preset": preset,
+    }
+    retry: dict[str, Any] = {}
+    if retry_attempts is not None:
+        retry["attempts"] = retry_attempts
+    if retry_backoff is not None:
+        retry["backoff_seconds"] = retry_backoff
+    if retry:
+        raw["retry"] = retry
+    if timeout is not None:
+        raw["timeout"] = timeout
+
+    try:
+        provider = ProviderConfig.model_validate({key: value for key, value in raw.items() if value is not None})
+    except ValidationError as exc:
+        return ProviderConfigStore(
+            config_path=str(config_path),
+            loaded=False,
+            error=f"{source.title()}ProviderConfigError: {redact_text(str(exc))}",
+        )
+
+    return ProviderConfigStore(
+        default_provider=name,
+        providers={name: provider},
+        config_path=str(config_path),
+        loaded=True,
+    )
 
 
 def _parse_provider_config(raw: dict[str, Any]) -> tuple[dict[str, ProviderConfig], str | None]:
@@ -149,6 +273,23 @@ def _parse_provider_config(raw: dict[str, Any]) -> tuple[dict[str, ProviderConfi
         providers[name] = ProviderConfig.model_validate({"name": name, **provider_data})
         return providers, name
     return providers, None
+
+
+def _env_value(name: str) -> str | None:
+    value = os.environ.get(name)
+    return _clean_value(value)
+
+
+def _mapping_value(values: dict[str, Any], name: str) -> str | None:
+    value = values.get(name)
+    return _clean_value(value)
+
+
+def _clean_value(value: Any) -> str | None:
+    if value is None:
+        return None
+    stripped = str(value).strip()
+    return stripped or None
 
 
 def minimax_global_preset() -> ProviderConfig:

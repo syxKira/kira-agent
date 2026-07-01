@@ -35,7 +35,6 @@ import type {
 } from "./types";
 
 const API_BASE = normalizeApiBase(import.meta.env.VITE_KIRA_API_BASE);
-const API_PREFIX = "/api";
 
 export function toApiUrl(pathOrUrl: string, base = API_BASE): string {
   if (pathOrUrl.startsWith("http://") || pathOrUrl.startsWith("https://")) {
@@ -44,15 +43,10 @@ export function toApiUrl(pathOrUrl: string, base = API_BASE): string {
 
   const path = pathOrUrl.startsWith("/") ? pathOrUrl : `/${pathOrUrl}`;
   const normalizedBase = normalizeApiBase(base);
-  if (!normalizedBase) {
+  if (normalizedBase === "/api" && (path === "/api" || path.startsWith("/api/"))) {
     return path;
   }
-
-  if (normalizedBase.endsWith(API_PREFIX) && (path === API_PREFIX || path.startsWith(`${API_PREFIX}/`) || path.startsWith(`${API_PREFIX}?`))) {
-    return `${normalizedBase}${path.slice(API_PREFIX.length)}`;
-  }
-
-  return `${normalizedBase}${path}`;
+  return normalizedBase ? `${normalizedBase}${path}` : path;
 }
 
 function normalizeApiBase(value?: string): string {

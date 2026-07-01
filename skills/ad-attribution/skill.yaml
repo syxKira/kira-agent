@@ -1,0 +1,24 @@
+permissions:
+  tools:
+    allow:
+      - read_project_file
+      - search_project_files
+      - run_python_script
+      - shell_exec
+  actions:
+    ask:
+      - external_send
+      - refresh_workflow
+      - validation_query
+references:
+  - references/original-test-data-skill.md
+  - references/original-test-data-examples.md
+  - references/original-validation-skill.md
+  - references/test-data-workflow.md
+  - references/validation-workflow.md
+  - references/background-index.md
+  - references/attribution-fields.md
+  - references/windows-tracking-code.md
+ui:
+  category: data-testing
+  icon: attribution

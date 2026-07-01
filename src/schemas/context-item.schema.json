@@ -8,7 +8,7 @@
     "id": { "type": "string", "minLength": 1 },
     "kind": {
       "type": "string",
-      "enum": ["system", "skill_summary", "skill_doc", "workflow_hint", "permission", "project_file", "project_search", "memory", "conversation_history", "conversation_summary", "compaction_summary", "tool_summary", "run", "omission", "debug"]
+      "enum": ["system", "skill_summary", "skill_doc", "skill_reference", "workflow_hint", "permission", "project_file", "project_search", "memory", "conversation_history", "conversation_summary", "compaction_summary", "tool_summary", "run", "omission", "debug"]
     },
     "text": { "type": "string" },
     "payload": { "type": "object" },

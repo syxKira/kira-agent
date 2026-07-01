@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Send one ad_tracker Kafka message through DolphinScheduler."""
+"""Send one cloud game behavior Kafka message through DolphinScheduler."""
 
 from __future__ import annotations
 
@@ -16,8 +16,19 @@ import urllib.request
 
 DEFAULT_ENDPOINT = "https://dolphinscheduler.hypergryph.net/dolphinscheduler"
 DEFAULT_PROJECT_CODE = "152149824329120"
-DEFAULT_WORKFLOW_CODE = "172769856000257"
-DEFAULT_POST_SEND_WAIT_SECONDS = 60
+DEFAULT_WORKFLOW_CODE = "176845737292545"
+DEFAULT_WORKFLOW_VERSION = "5"
+DEFAULT_POST_SEND_WAIT_SECONDS = 0
+DEFAULT_BEHAVIOR_TOPIC = "data-lake_ods_staging_o6tecvdb5vbkzzjjiea38b9v"
+ALLOWED_EVENT_NAMES = {
+    "#app_start",
+    "#user_login",
+    "#charge",
+    "#character_login",
+    "#downloader_start",
+    "#installer_start",
+    "#launcher_expose",
+}
 
 
 def load_token() -> str | None:
@@ -50,11 +61,11 @@ def load_token() -> str | None:
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Send one ad_tracker JSON message by starting the DolphinScheduler workflow."
+        description="Send one cloud game behavior JSON message by starting the DolphinScheduler workflow."
     )
     source = parser.add_mutually_exclusive_group(required=True)
-    source.add_argument("--file", help="Path to one ad_tracker Kafka JSON message, or '-' for stdin.")
-    source.add_argument("--json", help="One ad_tracker Kafka JSON message.")
+    source.add_argument("--file", help="Path to one cloud game behavior Kafka JSON message, or '-' for stdin.")
+    source.add_argument("--json", help="One cloud game behavior Kafka JSON message.")
     parser.add_argument(
         "--token",
         default=load_token(),
@@ -64,8 +75,18 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--project-code", default=os.getenv("DS_PROJECT_CODE", DEFAULT_PROJECT_CODE))
     parser.add_argument(
         "--workflow-code",
-        default=os.getenv("DS_ADTRACKER_WORKFLOW_CODE", DEFAULT_WORKFLOW_CODE),
-        help="DolphinScheduler workflowDefinitionCode for ad_tracker sending.",
+        default=os.getenv("DS_CLOUD_GAME_BEHAVIOR_WORKFLOW_CODE", DEFAULT_WORKFLOW_CODE),
+        help="DolphinScheduler workflowDefinitionCode for cloud game behavior sending.",
+    )
+    parser.add_argument(
+        "--workflow-version",
+        default=os.getenv("DS_CLOUD_GAME_BEHAVIOR_WORKFLOW_VERSION", DEFAULT_WORKFLOW_VERSION),
+        help="DolphinScheduler workflow definition version for cloud game behavior sending.",
+    )
+    parser.add_argument(
+        "--topic",
+        default=os.getenv("DS_CLOUD_GAME_BEHAVIOR_TOPIC", DEFAULT_BEHAVIOR_TOPIC),
+        help="Expected Kafka topic for cloud game behavior messages.",
     )
     parser.add_argument("--schedule-date", default=os.getenv("DS_SCHEDULE_DATE", time.strftime("%Y-%m-%d")))
     parser.add_argument("--dry-run", action="store_true", help="Print request payload without sending.")
@@ -75,7 +96,7 @@ def parse_args() -> argparse.Namespace:
         "--post-send-wait-seconds",
         type=int,
         default=int(os.getenv("DS_POST_SEND_WAIT_SECONDS", DEFAULT_POST_SEND_WAIT_SECONDS)),
-        help="Extra wait time in seconds after sending completes. Defaults to 60.",
+        help="Extra wait time in seconds after sending completes. Defaults to 0.",
     )
     return parser.parse_args()
 
@@ -90,9 +111,13 @@ def load_message(args: argparse.Namespace) -> dict:
             raw = fh.read()
 
     message = json.loads(raw)
+    topic = message.get("topic")
     event_name = message.get("data", {}).get("#name")
-    if event_name != "ad_tracker":
-        raise SystemExit(f"Expected data.#name to be ad_tracker, got {event_name!r}.")
+    if topic != args.topic:
+        raise SystemExit(f"Expected topic to be {args.topic}, got {topic!r}.")
+    if event_name not in ALLOWED_EVENT_NAMES:
+        expected = ", ".join(sorted(ALLOWED_EVENT_NAMES))
+        raise SystemExit(f"Expected data.#name to be one of {expected}, got {event_name!r}.")
     return message
 
 
@@ -102,9 +127,6 @@ def build_start_params(message: dict) -> str:
         {
             "direct": "IN",
             "type": "VARCHAR",
-            # DolphinScheduler injects this value into Python as: data = ${data}.
-            # Use a Python string literal array expression so nested escaped JSON
-            # strings such as caid remain valid after DS parameter substitution.
             "value": f"[{json.dumps(compact_message, ensure_ascii=False)}]",
             "prop": "data",
         }
@@ -132,6 +154,8 @@ def request_json(url: str, token: str, data: dict | None = None) -> dict:
                 "accept": "application/json, text/plain, */*",
                 "accept-language": "zh-CN,zh;q=0.9",
                 "content-type": "application/x-www-form-urlencoded",
+                "language": "zh_CN",
+                "origin": "https://dolphinscheduler.hypergryph.net",
                 "token": token,
             },
         )
@@ -145,6 +169,9 @@ def request_json(url: str, token: str, data: dict | None = None) -> dict:
 
 
 def start_workflow(args: argparse.Namespace, start_params: str) -> dict:
+    if not args.workflow_code:
+        raise SystemExit("Missing workflow code. Set DS_CLOUD_GAME_BEHAVIOR_WORKFLOW_CODE or pass --workflow-code.")
+
     schedule_time = json.dumps(
         {
             "complementStartDate": f"{args.schedule_date} 00:00:00",
@@ -171,7 +198,7 @@ def start_workflow(args: argparse.Namespace, start_params: str) -> dict:
         "expectedParallelismNumber": "2",
         "dryRun": "0",
         "testFlag": "0",
-        "version": "2",
+        "version": args.workflow_version,
         "allLevelDependent": "false",
         "executionOrder": "DESC_ORDER",
         "scheduleTime": schedule_time,

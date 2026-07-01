@@ -2,7 +2,7 @@
 name: ad-attribution-test-data
 description: >-
   构造广告归因 Kafka 测试数据 JSON，覆盖 ad_tracker、#app_start、#user_login、#charge、角色事件，
-  支持 idfa_c、anid_c、gaid_c、oaid_c 精准归因、Windows tracking_code 归因、ipv4/ipv6 模糊排查、设备新增/回流、账号新增/回流、
+  支持 idfa_c、fdid、anid_c、gaid_c、oaid_c 精准归因、Windows tracking_code 归因、ipv4/ipv6 模糊排查、设备新增/回流、账号新增/回流、
   已归因与未归因场景。当用户提到构造归因数据、广告匹配测试、设备归因、账号归因、
   设备回流、自然回流、账号付费，或用“广告a3 新增设备d3 注册账号u3 账号u3付费”
   这类简写描述场景时使用。
@@ -52,12 +52,14 @@ description: >-
 | 平台 | 行为日志 | 广告日志 | 匹配逻辑 |
 |------|---------|---------|---------|
 | iOS | `#idfa_c` | `idfa` | `upper(A) = upper(B)` 或 `upper(md5(A)) = upper(B)`（A=行为，B=广告） |
+| iOS | `#fdid` | `caid` | 内层 ID 一致；两侧字段值必须保持 JSON 数组字符串格式 |
 | Android | `#anid_c` | `anid` | 同上 |
 | Android | `#gaid_c` | `gaid` | 同上 |
 | Android | `#oaid_c` | `oaid` | 同上 |
 | Windows | `#tracking_code` | `#tracking_code` | 广告落地事件 `#ad_landing` 与行为事件按相同 `#tracking_code` 归因 |
 
 - 默认造数时，`idfa/anid/gaid/oaid` 及其对应行为字段尽量使用原值，不要主动改造成 `md5` 形式；只有用户显式说明要验证 `md5` 场景时才使用。
+- iOS `caid/#fdid` 归因时，广告侧 `caid` 的数组内容为 `[{"caid":"<ID>","version":"<VERSION>"}]`，行为侧 `#fdid` 的数组内容为 `[{"fdid":"<ID>","version":"<VERSION>"}]`；不要改成普通 ID 字符串、单个对象，或只保留内层 ID。发送脚本包装参数时再处理必要的嵌套转义。
 - `appsflyer_id` 如需造归因成功 case，广告侧至少满足：`source_type = "third_party"`、`source = "appsflyer"`；未满足这两个条件时，不要默认认为仅靠 `appsflyer_id` 相等就能归因成功。
 
 ### 模糊匹配与 IP 排查
@@ -65,6 +67,7 @@ description: >-
 - 广告侧通常看 `ad_tracker.data.ipv4`、`ad_tracker.data.ipv6`
 - 行为侧通常看外层 `#ipv4`是外层`ip`字段转的，ipv6则是 里层的`#ipv6` 
 - 如果精准字段双方都非空但不匹配，则退化成模糊匹配
+- 模糊归因场景里，同一个 IP 在同一自然日只能用于一次归因 case；新 case 必须换新的 `ipv4` / `ipv6`，或换到不同自然日
 - 做“不归因”场景时，除了把精准字段改成不匹配值，也要检查没有其他字段意外命中
 
 ### 关键定义
@@ -101,10 +104,12 @@ description: >-
 11. **避免误命中**：做未归因场景时，不仅要改精准字段，也要检查 IP、bundle、channel 等不会误导排查。
 12. **角色事件后置**：若用户要验证角色、区服、角色付费链路，`#character_login` 必须晚于账号事件。
 13. **IP 字段合法性**：构造 `ipv4` / `#ipv4` 与 `ipv6` / `#ipv6` 时必须使用合法地址。IPv4 每段取值必须在 `0-255`；IPv6 必须符合标准冒号分隔格式，不要使用随手拼接的非法占位值。
-14. **tracking_code 合法性**：`#tracking_code` 必须是 12 位字符串，只能由小写英文字母 `a-z` 与阿拉伯数字 `0-9` 组成，例如 `wwwdows00001`。
-15. **`source` 必须真实**：`source` 必须填写真实渠道值；如果用户没有额外说明，就沿用模板中的真实值，例如 `taptap`，不要自造默认占位值或虚构渠道名。
-16. **只输出不落文件**：构造的数据默认直接在对话中输出，不要创建、修改或覆盖任何项目文件，除非用户明确要求写入文件；普通 case 可按固定间隔排，回流场景必须先满足 `> 2 天`。
-17. **未要求发送不发送**：用户没有明确要求“发送”“发数据”或“造完直接发”时，只生成并展示 JSON，不调用任何发送脚本，也不要自行执行发送动作。
+14. **模糊归因 IP 日内唯一**：构造模糊归因 case 时，同一个 IP 在同一自然日只能用一次；如果同一天需要多个模糊归因 case，必须给每个 case 分配不同 IP。
+15. **tracking_code 合法性**：`#tracking_code` 必须是 12 位字符串，只能由小写英文字母 `a-z` 与阿拉伯数字 `0-9` 组成，例如 `wwwdows00001`。
+16. **caid/fdid 数组格式**：iOS 使用 `caid/#fdid` 时，两侧字段内容必须保持 JSON 数组结构。广告侧内层 key 为 `caid`，行为侧内层 key 为 `fdid`，内层 ID 与 `version` 必须一致。造数阶段不要手写发送参数里的二次反斜杠转义；发送脚本会在包装 DS `startParams` 时处理。
+17. **`source` 必须真实**：`source` 必须填写真实渠道值；如果用户没有额外说明，就沿用模板中的真实值，例如 `taptap`，不要自造默认占位值或虚构渠道名。
+18. **只输出不落文件**：构造的数据默认直接在对话中输出，不要创建、修改或覆盖任何项目文件，除非用户明确要求写入文件；普通 case 可按固定间隔排，回流场景必须先满足 `> 2 天`。
+19. **未要求发送不发送**：用户没有明确要求“发送”“发数据”或“造完直接发”时，只生成并展示 JSON，不调用任何发送脚本，也不要自行执行发送动作。
 
 ## 数据模板
 
@@ -115,8 +120,8 @@ description: >-
 - 根据平台填写一个精准匹配字段，其余匹配字段置 `null`
 - `source` / `media` 优先填写用户明确指定的真实渠道；若用户未说明，默认沿用模板值 `taptap`
 - 若造 `appsflyer_id` 归因成功 case，广告侧至少改成：`source_type = "third_party"`、`source = "appsflyer"`；`media` 建议同步写成 `appsflyer`
+- iOS `caid` 字段必须保持数组内容，例如 `[{"caid":"caid_<prefix>_new","version":"20261207"}]`；不使用时为 `null`
 - 所有时间戳字段都按数值填写，不要给 `ts` / `#ts` / `touch_ts` / `sys_*_ts` 加双引号
-- `match_type` 是模板默认空字段，构造原始 `ad_tracker` 广告日志时保持 `""`；不要把 `idfa`、`anid`、`gaid`、`oaid` 写入 `match_type`，除非用户明确要求构造已回填归因结果。
 - 广告归因字段重点覆盖：
   `source_type, source, media, partner, campaign_id, adset_id, ad_id, keyword_id, link_code, touch_type, touch_ts`
 
@@ -131,7 +136,7 @@ description: >-
   "topic": "data-lake_ods_staging_x48mn2zq83dx1flj7bds6xgk",
   "data": {
     "#ts": {{时间戳ms}},
-    "gaid": null, "anid": null, "oaid": null, "idfa": null,
+    "gaid": null, "anid": null, "oaid": null, "idfa": null, "caid": null,
     "uuid": "{{唯一ID}}", "#part_id": "{{同uuid}}",
     "ua": "{{OS}}", "os": "{{OS}}", "brand": "{{品牌}}", "model": "{{型号}}",
     "ipv4": "{{广告ipv4数值}}", "ipv6": "{{广告ipv6}}",
@@ -160,7 +165,8 @@ description: >-
 - topic: `data-lake_ods_staging_17IYH6HNGZwwbD2mE1ag6Rqm`
 - `#name`: `#app_start`
 - 设备身份键：`#sdid_s`
-- 精准匹配字段：`#idfa_c` 或 `#anid_c` / `#gaid_c` / `#oaid_c`
+- 精准匹配字段：`#idfa_c` / `#fdid` 或 `#anid_c` / `#gaid_c` / `#oaid_c`
+- iOS `#fdid` 字段必须保持数组内容，例如 `[{"fdid":"caid_<prefix>_new","version":"20261207"}]`；不使用时为 `null`
 
 ```json
 {
@@ -175,7 +181,7 @@ description: >-
     "#name": "#app_start",
     "#os": "{{OS}}", "#brand": "{{品牌}}", "#model": "{{型号}}",
     "#sdid_s": "{{设备ID}}",
-    "#idfa_c": null, "#anid_c": null, "#gaid_c": null, "#oaid_c": null,
+    "#idfa_c": null, "#fdid": null, "#anid_c": null, "#gaid_c": null, "#oaid_c": null,
     "#channel1": "{{设备channel1}}", "#channel2": "{{设备channel2}}",
     "#bundle_id": "{{设备bundle_id}}", "#os_ver": "{{设备os_ver}}",
     "#ipv4": "{{设备ipv4}}", "#ipv6": "{{设备ipv6}}",
@@ -303,7 +309,7 @@ description: >-
 ## 不归因场景设计
 
 使设备回流不归因：
-1. 将设备 `#idfa_c`（或 `#anid_c` 等）设为不匹配任何广告的值。
+1. 将设备 `#idfa_c`（或 `#fdid`、`#anid_c` 等）设为不匹配任何广告的值。
 2. 精准排除规则会阻止模糊匹配：当行为和广告的精准 ID 都非空但不匹配时，不允许退化为模糊归因。
 3. 若同一设备距上一次设备发送 <2 天，则按活跃设备处理，即使有广告匹配也不能归因。
 
@@ -311,18 +317,20 @@ description: >-
 (A.#oaid_c is null or B.oaid is null)
 AND (A.#gaid_c is null or B.gaid is null)
 AND (A.#idfa_c is null or B.idfa is null)
+AND (A.#fdid is null or B.caid is null)
 ```
 
 ## 构造流程
 
 1. **解析场景**：把用户简写转换成事件序列，判断是独立场景还是续上一个场景。
-2. **选平台和匹配键**：iOS 用 `idfa/idfa_c`，Android 用 `anid/anid_c`，必要时也可用 `gaid` 或 `oaid`。
+2. **选平台和匹配键**：iOS 用 `idfa/#idfa_c` 或 `caid/#fdid`，Android 用 `anid/#anid_c`，必要时也可用 `gaid` 或 `oaid`。
    - Windows 根据 `tracking_code` 归因时，使用广告侧 `#ad_landing.data.#tracking_code` 与行为侧 `#app_start.data.#tracking_code` 对齐。
 3. **设置时间基准**：沿用用户指定的起始日期；若无，先说明你采用的时间基准。
 4. **分配唯一前缀**：设备、账号、IP、bundle、channel、order_id 都带当前场景前缀。
 5. **填关键差异字段**：广告、设备、账号、付费的关键字段必须不同，方便验证取值来源。
 6. **对齐关联键**：
    - 广告 `idfa/anid/gaid/oaid` 与设备 `#idfa_c/#anid_c/#gaid_c/#oaid_c` 对齐。
+   - 广告 `caid` 与设备 `#fdid` 对齐时，只替换内层 ID，字段内容仍保持数组结构；发送参数的反斜杠转义交给脚本处理。
    - 账号 `#sdid_s` 与设备 `#sdid_s` 对齐。
    - 付费 `#user_id`、`#sdid_s` 与目标账号和设备对齐。
    - 同一个 `#order_id` 不得绑定多个 `#user_id`。
@@ -332,6 +340,29 @@ AND (A.#idfa_c is null or B.idfa is null)
 ## 输出格式
 
 默认直接在对话中输出，按事件发送顺序排列。不要输出成数组，除非用户明确要求；每条 Kafka 消息保持为独立 JSON 对象，便于逐条发送。用户未明确要求发送时，只展示数据，不执行发送。
+
+**回复结构（固定顺序）**：
+
+1. **场景摘要**：1–3 句，说明验证目标与事件链
+2. **期望结果**：bullet，分别写设备/账号/回流应归因与不应归因
+3. **时间与平台**：起始日期（UTC+8）、相邻间隔（默认 +60000 ms）、回流间隔（默认 +172800001 ms）、匹配键与 topic
+4. **身份键**：bullet 列出 `#sdid_s`、`#user_id`、匹配 ID 取值
+5. **分条 JSON**：`### N · 名称 \`#event\`（阶段）` + 单行 JSON 代码块；回流事件可在标题下补时间计算注释
+6. **时间对照表**：`| 序号 | 事件 | ts | 时间（UTC+8） |`
+7. **发送说明**（可选）：脚本名与顺序
+
+**JSON 展示规则**：
+
+- JSON 必须压缩为单行（`separators=(",", ":")`），放在 ` ```json ` 代码块内；禁止 pretty-print 或多行展开，除非用户明确要求
+- 同一轮输出统一使用上述结构，不要混用 pipe 单行、数组包裹等其他样式
+- 若包含 `caid/#fdid`，造数时强调数组内容与内层 key/ID/version 对齐；不要为了发送 DS 参数提前手写二次反斜杠转义
+
+**云游戏行为输出约定**：
+
+- 外层 `topic` / 内层 `#app_id` = `o6tecvdb5vbkzzjjiea38b9v`
+- **不写** `#is_cloudgame`；补齐云游戏微端涉及字段
+- 命名前缀 `cloudgame_{YYMMDD}_*`；回流后缀 `_ret`
+- 行为字段顺序：`#name` →（`#user_login` 时 `#user_id`）→ `#sdid_s` → `#app_id` → `#seq` → `#ts_c` → `#ts_s` → 其余字段
 
 若用户要求“发送”，回复中必须先明确展示“本次要发送的具体数据”，不能只回发送结果。最低要求：
 - 先标明这是第几条、事件类型、场景名（若有）
@@ -346,7 +377,7 @@ AND (A.#idfa_c is null or B.idfa is null)
 当用户明确要求“发送广告数据”“发 adtracker”或“造完广告后直接发”时，先按广告模板生成单条 `ad_tracker` Kafka JSON，再调用：
 
 ```bash
-python .cursor/skills/ad-attribution-test-data/scripts/send_adtracker.py --json '<单条ad_tracker JSON>' --wait
+python .kira/skills/ad-attribution/scripts/send_adtracker.py --json '<单条ad_tracker JSON>' --wait
 ```
 
 规则：
@@ -354,26 +385,56 @@ python .cursor/skills/ad-attribution-test-data/scripts/send_adtracker.py --json 
 - DolphinScheduler 项目级 token 通过 `DS_TOKEN`、项目根目录 `.env.local` 或 `--token` 传入，脚本会放到请求的 `token` header 中。
 - 脚本会把 Kafka JSON 包装成 DolphinScheduler 的 `startParams`。包装值必须是 Python 字符串数组表达式，不要改回三引号格式，否则 `caid` 等嵌套转义字段会导致 DS 任务里的 `json.loads` 失败。
 - 真正发送前，必须先在回复中说明“本次发送的广告数据是什么”，不能跳过数据回显直接发送。
-- 发送后优先使用 `--wait` 确认 DS task state 为 `SUCCESS`，并给出“校验点”：事件类型，以及本条广告的关键匹配 ID（如 `idfa/anid/gaid/oaid/appsflyer_id/#tracking_code`）。
+- 发送后优先使用 `--wait` 确认 DS task state 为 `SUCCESS`，并给出“校验点”：事件类型，以及本条广告的关键匹配 ID（如 `idfa/caid/anid/gaid/oaid/appsflyer_id/#tracking_code`）。
 
 ## 数据发送顺序与失败处理
 
 当用户要求发送多条数据时，必须按事件顺序逐条发送、逐条等待 DS task state 为 `SUCCESS` 后再发送下一条；不要把多条 Kafka JSON 打包进同一个 `startParams` 一次性发送，避免实时任务消费乱序。
 
+脚本默认不再在每条数据发送后额外等待。只有广告侧事件（`ad_tracker` 或 `#ad_landing`）发送成功后，下一条紧接行为侧事件时，才在广告侧发送命令后追加 `--post-send-wait-seconds 60`，让广告进入实时归因链路后再发行为。行为到行为、行为到广告、或只发送单条数据时，不要加这个 60 秒等待；也不要用 `DS_POST_SEND_WAIT_SECONDS=60` 做全局默认，避免所有脚本都固定等待。
+
 如果任意一条发送失败，立即停止发送后续数据，并告诉用户失败的是第几条、事件类型，以及能从 DS 日志中看到的失败原因摘要。只有全部发送成功后，才汇总告诉用户每条数据的验证点。
+
+## 刷数工作流
+
+当用户明确说“刷数”“补刷”“刷新归因数据”或“造完后刷数”时，才触发刷数工作流；只要求造数据或发送数据时，不要自动刷数。
+
+刷数脚本会优先读取环境变量 `DS_TOKEN`，若为空则自动读取项目根目录 `.env.local` 中的 `DS_TOKEN`；不要在输出中打印 token，也不要使用网页 cookie/session 作为脚本认证方式。
+
+刷数周期规则：
+- 用户若明确给出造数周期，直接使用该周期。
+- 用户若没有明确给周期，但本轮刚造过数据，则从本轮事件时间里取最早自然日作为造数起始日期、最晚自然日作为造数结束日期。
+- 传给 DS 的参数不是原始造数周期，而是把造数起始日期和结束日期分别 `+1 天` 后得到 `start_dt` / `end_dt`。
+- 示例：造数周期为 `2025-11-01` 到 `2025-11-02`，实际传入 `start_dt=2025-11-02`、`end_dt=2025-11-03`。
+
+调用方式：
+
+```bash
+python .kira/skills/ad-attribution/scripts/start_refresh_workflow.py \
+  --data-start-date 2025-11-01 \
+  --data-end-date 2025-11-02 \
+  --wait
+```
+
+规则：
+- 默认 workflowDefinitionCode 为 `162039914621184`，version 为 `5`；如 DS 工作流版本变更，用 `DS_REFRESH_WORKFLOW_CODE`、`DS_REFRESH_WORKFLOW_VERSION` 或命令参数覆盖。
+- 脚本按捕获到的 curl 默认传 `dryRun=1`；如需要改 DS 入参，可传 `--ds-dry-run 0` 或设置 `DS_REFRESH_DRY_RUN=0`。
+- 真正刷数前，必须先说明“本次造数周期”和“实际传给 DS 的 `start_dt` / `end_dt`”，并等待用户明确确认“可以刷 / 确认执行 / 没问题”等同意指令后，才可以执行；不能跳过周期说明或确认步骤直接执行。
+- 发送多条数据后再刷数时，必须先确认全部发送成功；若发送失败，不触发刷数。
 
 ## 发送 `#ad_landing` 广告落地数据
 
 当用户明确要求“发送 ad_landing”“发广告落地数据”或 Windows `tracking_code` 归因场景里的广告侧事件时，先按广告落地模板生成单条 `#ad_landing` Kafka JSON，再调用：
 
 ```bash
-python .cursor/skills/ad-attribution-test-data/scripts/send_ad_landing.py --json '<单条#ad_landing JSON>' --wait
+python .kira/skills/ad-attribution/scripts/send_ad_landing.py --json '<单条#ad_landing JSON>' --wait
 ```
 
 规则：
 - 该脚本只用于发送 `data.#name = #ad_landing`、topic `data-lake_ods_staging_phlbx43ypzzk23ujqrbic3c7` 的广告落地数据。
 - 默认使用 workflowDefinitionCode `172774078531841`、version `3`；如 DS 工作流版本变更，用 `DS_AD_LANDING_WORKFLOW_CODE`、`DS_AD_LANDING_WORKFLOW_VERSION` 或命令参数覆盖。
 - `#tracking_code` 必须存在，且要与后续 Windows 行为数据里的 `#tracking_code` 完全一致。
+- Windows `#ad_landing` 广告落地场景如果构造模糊归因，只使用 `ipv4`；不要补 `ipv6` 模糊匹配字段。
 - DolphinScheduler 项目级 token 通过 `DS_TOKEN`、项目根目录 `.env.local` 或 `--token` 传入，脚本会放到请求的 `token` header 中。
 - 真正发送前，必须先在回复中说明“本次发送的广告落地数据是什么”，不能跳过数据回显直接发送。
 - 发送后优先使用 `--wait` 确认 DS task state 为 `SUCCESS`，并给出“校验点”：事件类型，以及 `#tracking_code`。
@@ -383,7 +444,7 @@ python .cursor/skills/ad-attribution-test-data/scripts/send_ad_landing.py --json
 当用户明确要求“发送行为数据”“发设备/账号/付费数据”时，先按行为模板生成单条 Kafka JSON，再调用：
 
 ```bash
-python .cursor/skills/ad-attribution-test-data/scripts/send_behavior.py --json '<单条行为JSON>' --wait
+python .kira/skills/ad-attribution/scripts/send_behavior.py --json '<单条行为JSON>' --wait
 ```
 
 规则：
@@ -392,7 +453,25 @@ python .cursor/skills/ad-attribution-test-data/scripts/send_behavior.py --json '
 - DolphinScheduler 项目级 token 通过 `DS_TOKEN`、项目根目录 `.env.local` 或 `--token` 传入，脚本会放到请求的 `token` header 中；不要使用网页 cookie/session 作为脚本认证方式。
 - 行为发送脚本同样使用 Python 字符串数组表达式包装 `startParams`，不要改回三引号格式。
 - 真正发送前，必须先在回复中说明“本次发送的行为数据是什么”，不能跳过数据回显直接发送。
-- 发送后优先使用 `--wait` 确认 DS task state 为 `SUCCESS`，并给出“校验点”：事件类型、`#sdid_s`；若有账号则补 `#user_id`，并补本条行为使用的匹配键（如 `#idfa_c/#anid_c/#gaid_c/#oaid_c/#appsflyer_id/#tracking_code`）。
+- 发送后优先使用 `--wait` 确认 DS task state 为 `SUCCESS`，并给出“校验点”：事件类型、`#sdid_s`；若有账号则补 `#user_id`，并补本条行为使用的匹配键（如 `#idfa_c/#fdid/#anid_c/#gaid_c/#oaid_c/#appsflyer_id/#tracking_code`）。
+
+## 发送云游戏行为数据
+
+当用户明确要求“发送云游戏行为数据”“发 cloud game 行为”或明确指定使用云游戏行为 DS 时，先按行为模板生成单条 Kafka JSON，再调用：
+
+```bash
+python .kira/skills/ad-attribution/scripts/send_cloud_game_behavior.py --topic data-lake_ods_staging_o6tecvdb5vbkzzjjiea38b9v --json '<单条云游戏行为JSON>' --wait
+```
+
+规则：
+- 云游戏行为数据外层 `topic` 必须为 `data-lake_ods_staging_o6tecvdb5vbkzzjjiea38b9v`，内层 `data.#app_id` 必须为 `o6tecvdb5vbkzzjjiea38b9v`。
+- 该脚本的 JSON 校验与普通行为脚本一致，发送云游戏行为数据时必须通过 `--topic data-lake_ods_staging_o6tecvdb5vbkzzjjiea38b9v` 指定云游戏 topic；如云游戏 topic 后续变化，可用 `DS_CLOUD_GAME_BEHAVIOR_TOPIC` 或 `--topic` 覆盖。
+- 默认使用云游戏行为 workflowDefinitionCode `176845737292545`、version `5`；如 DS 工作流版本变更，用 `DS_CLOUD_GAME_BEHAVIOR_WORKFLOW_CODE`、`DS_CLOUD_GAME_BEHAVIOR_WORKFLOW_VERSION` 或命令参数覆盖。
+- DolphinScheduler 项目级 token 通过 `DS_TOKEN`、项目根目录 `.env.local` 或 `--token` 传入，脚本会放到请求的 `token` header 中；不要在输出中打印 token。
+- 生成云游戏行为 JSON 时，除补齐“标准（云游戏微端）是否涉及 = 1”的行为字段外，也必须保留行为基础字段，尤其是 `#app_id`、`#seq`、`#ts_c`、`#ts_s`。
+- 云游戏行为发送脚本同样使用 Python 字符串数组表达式包装 `startParams`。
+- 真正发送前，必须先在回复中说明“本次发送的云游戏行为数据是什么”，不能跳过数据回显直接发送。
+- 发送后优先使用 `--wait` 确认 DS task state 为 `SUCCESS`，并给出“校验点”：事件类型、`#sdid_s`；若有账号则补 `#user_id`，并补本条行为使用的匹配键（如 `#idfa_c/#fdid/#anid_c/#gaid_c/#oaid_c/#appsflyer_id/#tracking_code`）。
 
 ````markdown
 场景摘要：...
@@ -419,7 +498,9 @@ python .cursor/skills/ad-attribution-test-data/scripts/send_behavior.py --json '
 - `#order_id` 是否唯一归属到一个 `#user_id`
 - 若涉及角色，角色事件是否晚于账号事件
 - 若涉及 Windows 归因，`#tracking_code` 是否为 12 位且仅包含小写字母和数字，且广告侧与行为侧完全一致
+- 若涉及 iOS `caid/#fdid`，字段内容是否仍为数组结构，且广告侧内层 `caid` 与行为侧内层 `fdid` 的 ID 和 `version` 一致；发送前再确认脚本包装参数时会处理嵌套转义
 - 所有 `ipv4` / `#ipv4` 与 `ipv6` / `#ipv6` 是否都是合法 IP 地址
+- 模糊归因场景中，同一 IP 是否没有在同一自然日被多个 case 复用
 - 若用户给的是混乱背景，最终是否已经被整理成清晰的场景摘要
 
 ## 常见通用场景
@@ -440,8 +521,8 @@ python .cursor/skills/ad-attribution-test-data/scripts/send_behavior.py --json '
 
 | 维度 | iOS | Android | Windows |
 |------|-----|---------|---------|
-| 归因字段(行为) | `#idfa_c` | `#anid_c` / `#gaid_c` / `#oaid_c` | `#tracking_code` |
-| 归因字段(广告) | `idfa` | `anid` / `gaid` / `oaid` | `#tracking_code` |
+| 归因字段(行为) | `#idfa_c` / `#fdid` | `#anid_c` / `#gaid_c` / `#oaid_c` | `#tracking_code` |
+| 归因字段(广告) | `idfa` / `caid` | `anid` / `gaid` / `oaid` | `#tracking_code` |
 | 广告事件 | `ad_tracker` | `ad_tracker` | `#ad_landing` |
 | OS | iOS | Android | Windows |
 | sdk_type | iOS | Android | Windows |

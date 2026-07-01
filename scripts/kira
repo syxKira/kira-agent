@@ -104,6 +104,7 @@ def run_dev(args: argparse.Namespace) -> int:
 
 
 def run_serve(args: argparse.Namespace) -> int:
+    require_command("uv")
     web_dist = Path(args.web_dist).expanduser()
     index_html = web_dist / "index.html"
     if args.build or not index_html.is_file():
@@ -124,10 +125,18 @@ def run_serve(args: argparse.Namespace) -> int:
     env = os.environ.copy()
     env["KIRA_WEB_DIST"] = str(web_dist.resolve())
     url = origin_for_local_client(args.host, args.port)
-    command = serve_uvicorn_command(args.host, args.port)
     process: subprocess.Popen | None = None
     try:
-        process = start_process(command, cwd=SERVER_DIR, env=env)
+        process = start_process([
+            "uv",
+            "run",
+            "uvicorn",
+            "kira_server.main:app",
+            "--host",
+            args.host,
+            "--port",
+            str(args.port),
+        ], cwd=SERVER_DIR, env=env)
         print(f"Kira serve started: {url}")
         print("Press Ctrl-C to stop the service.")
         return wait_for_processes([process])
@@ -204,49 +213,6 @@ def run_smoke_serve(args: argparse.Namespace) -> int:
 def require_command(command: str) -> None:
     if shutil.which(command) is None:
         raise StartupError(f"missing prerequisite `{command}` on PATH")
-
-
-def serve_uvicorn_command(host: str, port: int) -> list[str]:
-    venv_python = server_venv_python()
-    if venv_python is not None:
-        return [
-            str(venv_python),
-            "-m",
-            "uvicorn",
-            "kira_server.main:app",
-            "--host",
-            host,
-            "--port",
-            str(port),
-        ]
-
-    if shutil.which("uv") is not None:
-        return [
-            "uv",
-            "run",
-            "uvicorn",
-            "kira_server.main:app",
-            "--host",
-            host,
-            "--port",
-            str(port),
-        ]
-
-    raise StartupError(
-        "missing server runtime; expected `uv` on PATH or `server/.venv/bin/python`. "
-        "Run `cd server && uv sync --frozen` during build, or install the server package into the runtime Python."
-    )
-
-
-def server_venv_python() -> Path | None:
-    candidates = [
-        SERVER_DIR / ".venv" / "bin" / "python",
-        SERVER_DIR / ".venv" / "Scripts" / "python.exe",
-    ]
-    for candidate in candidates:
-        if candidate.is_file():
-            return candidate
-    return None
 
 
 def run_checked(command: Sequence[str], cwd: Path) -> None:

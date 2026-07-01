@@ -29,6 +29,36 @@ ALWAYS_INCLUDE_SECTION_HEADINGS = (
     "失败处理",
 )
 MAX_SELECTED_SKILL_SECTIONS = 10
+MAX_SELECTED_REFERENCES = 2
+MIN_REFERENCE_SCORE = 8.0
+MAX_REFERENCE_CHARS = 8_000
+REFERENCE_TRIGGER_TERMS = (
+    "#app_start",
+    "#charge",
+    "#user_login",
+    "ad_tracker",
+    "adtracker",
+    "appsflyer",
+    "ds",
+    "match_type",
+    "tracking_code",
+    "trino",
+    "windows",
+    "付费",
+    "发送",
+    "发数",
+    "回流",
+    "实时",
+    "校验",
+    "模糊",
+    "查询",
+    "精准",
+    "结果表",
+    "离线",
+    "造数",
+    "归因",
+    "刷数",
+)
 
 
 class SkillFrontmatter(BaseModel):
@@ -302,7 +332,88 @@ def skill_context_items(package: ParsedSkillPackage, *, query: str | None = None
                 budget_cost=estimate_budget_cost(text),
             )
         )
+    items.extend(_reference_context_items(package, query=query))
     return items
+
+
+def _reference_context_items(package: ParsedSkillPackage, *, query: str | None) -> list[ContextItem]:
+    if not package.manifest or not package.manifest.references:
+        return []
+    query = (query or "").strip()
+    if not query:
+        return []
+    if not _should_load_references(query):
+        return []
+
+    candidates: list[tuple[float, str, Path, str]] = []
+    for reference in package.manifest.references:
+        path = (package.path / reference).resolve()
+        try:
+            path.relative_to(package.path.resolve())
+        except ValueError:
+            continue
+        if not path.is_file():
+            continue
+        text = path.read_text(encoding="utf-8", errors="replace")
+        score = _section_score(f"{reference}\n{text}", query)
+        if score > 0:
+            candidates.append((score, reference, path, text))
+
+    if not candidates:
+        return []
+
+    candidates.sort(key=lambda item: (-item[0], item[1]))
+    max_score = candidates[0][0]
+    threshold = max(3.0, max_score * 0.6)
+    selected = [
+        item
+        for item in candidates
+        if item[0] >= threshold and item[0] >= MIN_REFERENCE_SCORE
+    ][:MAX_SELECTED_REFERENCES]
+    if not selected:
+        return []
+
+    items: list[ContextItem] = []
+    for reference_index, (score, reference, path, text) in enumerate(selected):
+        original_chars = len(text)
+        reference_text = _rewrite_installed_skill_paths(text[:MAX_REFERENCE_CHARS], package)
+        header = (
+            f"Skill reference for {package.skill_id}: {reference}\n"
+            f"Source path: {path.as_posix()}\n"
+            f"Loaded because it matched the user query: {query[:200]}\n\n"
+        )
+        for chunk_index, chunk in enumerate(_chunk_text(header + reference_text, max_chars=6_000)):
+            items.append(
+                ContextItem(
+                    id=make_context_id("skill_ref", package.skill_id, reference, chunk_index, chunk),
+                    kind="skill_reference",
+                    text=chunk,
+                    metadata={
+                        "source": str(path),
+                        "skill_id": package.skill_id,
+                        "reference": reference,
+                        "reference_index": reference_index,
+                        "chunk_index": chunk_index,
+                        "selection": {
+                            "mode": "reference",
+                            "query": query[:200],
+                            "score": score,
+                            "truncated": original_chars > MAX_REFERENCE_CHARS,
+                            "original_chars": original_chars,
+                            "included_chars": min(original_chars, MAX_REFERENCE_CHARS),
+                            "omitted_reference_count": max(0, len(candidates) - len(selected)),
+                        },
+                    },
+                    trust="trusted_skill",
+                    budget_cost=estimate_budget_cost(chunk),
+                )
+            )
+    return items
+
+
+def _should_load_references(query: str) -> bool:
+    normalized_query = _normalize_for_match(query)
+    return any(_normalize_for_match(term) in normalized_query for term in REFERENCE_TRIGGER_TERMS)
 
 
 def _rewrite_installed_skill_paths(body: str, package: ParsedSkillPackage) -> str:

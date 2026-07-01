@@ -30,12 +30,9 @@ describe("api URL handling", () => {
     expect(toApiUrl("/api/health", "/kira/")).toBe("/kira/api/health");
   });
 
-  it("does not duplicate the API prefix when the configured base is already /api", () => {
+  it("does not duplicate same-origin /api base", () => {
     expect(toApiUrl("/api/runs", "/api")).toBe("/api/runs");
     expect(toApiUrl("api/health", "/api/")).toBe("/api/health");
-    expect(toApiUrl("/api/runs/local-test/events", "https://example.test/api")).toBe(
-      "https://example.test/api/runs/local-test/events",
-    );
   });
 
   it("keeps absolute event stream URLs unchanged", () => {

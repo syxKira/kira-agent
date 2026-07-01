@@ -285,7 +285,7 @@ async def create_run(payload: RunCreateRequest, request: Request) -> RunCreateRe
     if requested_skill_ids:
         source = catalog_skill.package.source if catalog_skill and catalog_skill.package else None
         source_key = getattr(source, "key", None)
-        trusted = source_key in {None, "built-in", "local", "workspace", "project"}
+        trusted = source_key in {None, "built-in", "bundled", "local", "workspace", "project"}
         decision = _permission_service(request).evaluate("skill.invoke", {"skill_id": requested_skill_ids[0], "trusted": trusted, "source": source_key})
         permission_decisions.append(decision.model_dump())
         audit = storage.record_audit(

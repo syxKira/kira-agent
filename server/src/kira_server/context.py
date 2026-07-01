@@ -11,6 +11,7 @@ ContextKind = Literal[
     "system",
     "skill_summary",
     "skill_doc",
+    "skill_reference",
     "workflow_hint",
     "permission",
     "project_file",

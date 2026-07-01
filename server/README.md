@@ -18,14 +18,6 @@ scripts/kira serve --build
 
 The single-service path sets `KIRA_WEB_DIST` to the built Vite `dist` directory and serves the SPA shell at `/`. API routes keep the `/api/*` prefix, and unknown API routes remain API 404 responses instead of falling through to the frontend. Binding to `0.0.0.0` is possible with `scripts/kira serve --host 0.0.0.0`, but it does not add authentication, TLS, or public internet hardening.
 
-For production-style deployments where the build step already ran `uv sync --frozen` and produced `web/dist`, start without rebuilding:
-
-```bash
-cd /app && python scripts/kira serve --no-build --host 0.0.0.0 --port 8000
-```
-
-This uses `server/.venv/bin/python` when it exists, so the runtime container does not need `uv` on `PATH`.
-
 For backend-only development:
 
 ```bash

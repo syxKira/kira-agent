@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Send one #ad_landing Kafka message through DolphinScheduler."""
+"""Start the attribution refresh DolphinScheduler workflow."""
 
 from __future__ import annotations
 
@@ -7,19 +7,19 @@ import argparse
 import json
 import os
 import ssl
-import sys
 import time
 import urllib.error
 import urllib.parse
 import urllib.request
+from datetime import date, timedelta
+from pathlib import Path
 
 
 DEFAULT_ENDPOINT = "https://dolphinscheduler.hypergryph.net/dolphinscheduler"
 DEFAULT_PROJECT_CODE = "152149824329120"
-DEFAULT_WORKFLOW_CODE = "172774078531841"
-DEFAULT_WORKFLOW_VERSION = "3"
-DEFAULT_POST_SEND_WAIT_SECONDS = 60
-AD_LANDING_TOPIC = "data-lake_ods_staging_phlbx43ypzzk23ujqrbic3c7"
+DEFAULT_WORKFLOW_CODE = "162039914621184"
+DEFAULT_WORKFLOW_VERSION = "5"
+DEFAULT_DS_DRY_RUN = "1"
 
 
 def load_token() -> str | None:
@@ -27,36 +27,51 @@ def load_token() -> str | None:
     if token:
         return token
 
-    script_dir = os.path.dirname(os.path.abspath(__file__))
-    project_root = os.path.abspath(os.path.join(script_dir, "../../../.."))
+    project_root = Path(__file__).resolve().parents[4]
     candidates = [
-        os.path.join(os.getcwd(), ".env.local"),
-        os.path.join(project_root, ".env.local"),
+        Path.cwd() / ".env.local",
+        project_root / ".env.local",
     ]
 
-    seen = set()
+    seen: set[Path] = set()
     for path in candidates:
-        if path in seen or not os.path.exists(path):
+        if path in seen or not path.exists():
             continue
         seen.add(path)
-        with open(path, "r", encoding="utf-8") as fh:
-            for line in fh:
-                line = line.strip()
-                if not line or line.startswith("#") or "=" not in line:
-                    continue
-                key, value = line.split("=", 1)
-                if key.strip() == "DS_TOKEN":
-                    return value.strip().strip('"').strip("'")
+        for line in path.read_text(encoding="utf-8").splitlines():
+            line = line.strip()
+            if not line or line.startswith("#") or "=" not in line:
+                continue
+            key, value = line.split("=", 1)
+            if key.strip() == "DS_TOKEN":
+                return value.strip().strip('"').strip("'")
     return None
+
+
+def parse_date(value: str, arg_name: str) -> date:
+    try:
+        return date.fromisoformat(value)
+    except ValueError as exc:
+        raise SystemExit(f"{arg_name} must be YYYY-MM-DD, got {value!r}.") from exc
 
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Send one #ad_landing JSON message by starting the DolphinScheduler workflow."
+        description=(
+            "Start the attribution refresh workflow. The DS start_dt/end_dt params are "
+            "derived by adding one day to the data period start/end dates."
+        )
     )
-    source = parser.add_mutually_exclusive_group(required=True)
-    source.add_argument("--file", help="Path to one #ad_landing Kafka JSON message, or '-' for stdin.")
-    source.add_argument("--json", help="One #ad_landing Kafka JSON message.")
+    parser.add_argument(
+        "--data-start-date",
+        required=True,
+        help="Start date of the generated data period, YYYY-MM-DD.",
+    )
+    parser.add_argument(
+        "--data-end-date",
+        required=True,
+        help="End date of the generated data period, YYYY-MM-DD.",
+    )
     parser.add_argument(
         "--token",
         default=load_token(),
@@ -66,62 +81,47 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--project-code", default=os.getenv("DS_PROJECT_CODE", DEFAULT_PROJECT_CODE))
     parser.add_argument(
         "--workflow-code",
-        default=os.getenv("DS_AD_LANDING_WORKFLOW_CODE", DEFAULT_WORKFLOW_CODE),
-        help="DolphinScheduler workflowDefinitionCode for #ad_landing sending.",
+        default=os.getenv("DS_REFRESH_WORKFLOW_CODE", DEFAULT_WORKFLOW_CODE),
+        help="DolphinScheduler workflowDefinitionCode for attribution refresh.",
     )
     parser.add_argument(
         "--workflow-version",
-        default=os.getenv("DS_AD_LANDING_WORKFLOW_VERSION", DEFAULT_WORKFLOW_VERSION),
-        help="DolphinScheduler workflow definition version for #ad_landing sending.",
+        default=os.getenv("DS_REFRESH_WORKFLOW_VERSION", DEFAULT_WORKFLOW_VERSION),
+        help="DolphinScheduler workflow definition version for attribution refresh.",
+    )
+    parser.add_argument(
+        "--ds-dry-run",
+        choices=["0", "1"],
+        default=os.getenv("DS_REFRESH_DRY_RUN", DEFAULT_DS_DRY_RUN),
+        help="Value sent to DolphinScheduler dryRun. Defaults to the captured curl value, 1.",
     )
     parser.add_argument("--schedule-date", default=os.getenv("DS_SCHEDULE_DATE", time.strftime("%Y-%m-%d")))
     parser.add_argument("--dry-run", action="store_true", help="Print request payload without sending.")
     parser.add_argument("--wait", action="store_true", help="Poll the task instance state after starting workflow.")
     parser.add_argument("--wait-timeout", type=int, default=60)
-    parser.add_argument(
-        "--post-send-wait-seconds",
-        type=int,
-        default=int(os.getenv("DS_POST_SEND_WAIT_SECONDS", DEFAULT_POST_SEND_WAIT_SECONDS)),
-        help="Extra wait time in seconds after sending completes. Defaults to 60.",
-    )
     return parser.parse_args()
 
 
-def load_message(args: argparse.Namespace) -> dict:
-    if args.json is not None:
-        raw = args.json
-    elif args.file == "-":
-        raw = sys.stdin.read()
-    else:
-        with open(args.file, "r", encoding="utf-8") as fh:
-            raw = fh.read()
+def derive_refresh_dates(args: argparse.Namespace) -> tuple[str, str]:
+    data_start_date = parse_date(args.data_start_date, "--data-start-date")
+    data_end_date = parse_date(args.data_end_date, "--data-end-date")
+    if data_start_date > data_end_date:
+        raise SystemExit("--data-start-date must be earlier than or equal to --data-end-date.")
 
-    message = json.loads(raw)
-    topic = message.get("topic")
-    event_name = message.get("data", {}).get("#name")
-    if topic != AD_LANDING_TOPIC:
-        raise SystemExit(f"Expected topic to be {AD_LANDING_TOPIC}, got {topic!r}.")
-    if event_name != "#ad_landing":
-        raise SystemExit(f"Expected data.#name to be #ad_landing, got {event_name!r}.")
-    if not message.get("data", {}).get("#tracking_code"):
-        raise SystemExit("Missing data.#tracking_code for #ad_landing attribution.")
-    return message
+    start_dt = data_start_date + timedelta(days=1)
+    end_dt = data_end_date + timedelta(days=1)
+    return start_dt.isoformat(), end_dt.isoformat()
 
 
-def build_start_params(message: dict) -> str:
-    compact_message = json.dumps(message, ensure_ascii=False, separators=(",", ":"))
+def build_start_params(start_dt: str, end_dt: str) -> str:
     params = [
-        {
-            "direct": "IN",
-            "type": "VARCHAR",
-            "value": f"[{json.dumps(compact_message, ensure_ascii=False)}]",
-            "prop": "data",
-        }
+        {"prop": "start_dt", "direct": "IN", "type": "VARCHAR", "value": start_dt},
+        {"prop": "end_dt", "direct": "IN", "type": "VARCHAR", "value": end_dt},
     ]
     return json.dumps(params, ensure_ascii=False, separators=(",", ":"))
 
 
-def request_json(url: str, token: str, data: dict | None = None) -> dict:
+def request_json(url: str, token: str, data: dict[str, str] | None = None) -> dict:
     ssl_context = None
     try:
         import certifi
@@ -141,6 +141,8 @@ def request_json(url: str, token: str, data: dict | None = None) -> dict:
                 "accept": "application/json, text/plain, */*",
                 "accept-language": "zh-CN,zh;q=0.9",
                 "content-type": "application/x-www-form-urlencoded",
+                "language": "zh_CN",
+                "origin": "https://dolphinscheduler.hypergryph.net",
                 "token": token,
             },
         )
@@ -154,6 +156,9 @@ def request_json(url: str, token: str, data: dict | None = None) -> dict:
 
 
 def start_workflow(args: argparse.Namespace, start_params: str) -> dict:
+    if not args.workflow_code:
+        raise SystemExit("Missing workflow code. Set DS_REFRESH_WORKFLOW_CODE or pass --workflow-code.")
+
     schedule_time = json.dumps(
         {
             "complementStartDate": f"{args.schedule_date} 00:00:00",
@@ -178,7 +183,7 @@ def start_workflow(args: argparse.Namespace, start_params: str) -> dict:
         "environmentCode": "",
         "startParams": start_params,
         "expectedParallelismNumber": "2",
-        "dryRun": "0",
+        "dryRun": args.ds_dry_run,
         "testFlag": "0",
         "version": args.workflow_version,
         "allLevelDependent": "false",
@@ -220,10 +225,10 @@ def wait_for_task(args: argparse.Namespace, workflow_instance_id: int) -> dict |
 
 def main() -> None:
     args = parse_args()
-    message = load_message(args)
-    start_params = build_start_params(message)
+    start_dt, end_dt = derive_refresh_dates(args)
+    start_params = build_start_params(start_dt, end_dt)
     result = start_workflow(args, start_params)
-    print(json.dumps(result, ensure_ascii=False))
+    print(json.dumps({"start_dt": start_dt, "end_dt": end_dt, "result": result}, ensure_ascii=False))
 
     workflow_ids = result.get("data") if isinstance(result, dict) else None
     if args.wait and workflow_ids:
@@ -231,9 +236,6 @@ def main() -> None:
         print(json.dumps({"task": task}, ensure_ascii=False))
         if task and task.get("state") != "SUCCESS":
             raise SystemExit(1)
-
-    if not args.dry_run and args.post_send_wait_seconds > 0:
-        time.sleep(args.post_send_wait_seconds)
 
 
 if __name__ == "__main__":

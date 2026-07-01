@@ -1,0 +1,20 @@
+#!/bin/sh
+set -eu
+
+ROOT_DIR="$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)"
+SERVER_DIR="$ROOT_DIR/server"
+
+export PIP_INDEX_URL="${PIP_INDEX_URL:-https://pypi.tuna.tsinghua.edu.cn/simple}"
+export PIP_TRUSTED_HOST="${PIP_TRUSTED_HOST:-pypi.tuna.tsinghua.edu.cn}"
+export KIRA_WEB_DIST="${KIRA_WEB_DIST:-$ROOT_DIR/web/dist}"
+export KIRA_RUNTIME_DB_PATH="${KIRA_RUNTIME_DB_PATH:-/data/kira.db}"
+export KIRA_CONFIG_PATH="${KIRA_CONFIG_PATH:-/data/conf/config.yaml}"
+
+mkdir -p /data/conf
+
+if ! python -c "import uvicorn" >/dev/null 2>&1; then
+  python -m pip install --no-cache-dir --timeout 300 "$SERVER_DIR"
+fi
+
+cd "$SERVER_DIR"
+exec python -m uvicorn kira_server.main:app --host "${HOST:-0.0.0.0}" --port "${PORT:-8000}"
